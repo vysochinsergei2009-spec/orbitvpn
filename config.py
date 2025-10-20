@@ -54,11 +54,13 @@ def _load_plans(file_path: str = "plans.json") -> dict[str, Any]:
 
 # --- Telegram Bot Configuration ---
 BOT_TOKEN: Final[str] = _get_required_env("BOT_TOKEN")
-bot: Final[Bot] = Bot(token=BOT_TOKEN)
+T_BOT_TOKEN: Final[str] = _get_required_env("T_BOT_TOKEN")
+
+bot: Final[Bot] = Bot(token=T_BOT_TOKEN)
 
 # --- Logging Configuration ---
 IS_LOGGING: Final[bool] = True
-LOG_LEVEL: Final[str] = "DEBUG"  # Options: "INFO", "DEBUG", "ERROR"
+LOG_LEVEL: Final[str] = "INFO"  # Options: "INFO", "DEBUG", "ERROR"
 LOG_AIOGRAM: Final[bool] = False
 
 # --- Database Configuration ---
