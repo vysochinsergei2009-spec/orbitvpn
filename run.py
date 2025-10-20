@@ -6,6 +6,7 @@ from app.utils.redis import init_cache, close_cache
 from app.utils.rate_limit import RateLimitMiddleware, cleanup_rate_limit
 from app.utils.logging import get_logger, setup_aiogram_logger
 from app.repo.db import close_db
+from app.repo.init_db import init_database
 from config import bot
 
 LOG = get_logger(__name__)
@@ -13,6 +14,7 @@ LOG = get_logger(__name__)
 async def main():
     setup_aiogram_logger()
 
+    await init_database()
     await init_cache()
 
     dp = Dispatcher()

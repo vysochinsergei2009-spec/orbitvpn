@@ -28,12 +28,13 @@ def _build_keyboard(
 
 
 def main_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
+    """Main menu with prioritized button hierarchy"""
     return _build_keyboard([
-        {'text': t('balance'), 'callback_data': 'balance'},
         {'text': t('my_vpn'), 'callback_data': 'myvpn'},
-        {'text': t('help'), 'url': 'https://t.me/chnddy'},
+        {'text': t('balance'), 'callback_data': 'balance'},
         {'text': t('settings'), 'callback_data': 'settings'},
-    ], adjust=2)
+        {'text': t('help'), 'url': 'https://t.me/chnddy'},
+    ], adjust=[1, 1, 2])
 
 
 def balance_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
@@ -64,10 +65,14 @@ def myvpn_kb(
             'callback_data': 'add_config' if has_active_sub else 'buy_sub',
         })
 
-    buttons.extend(
-        {'text': cfg['name'], 'callback_data': f"cfg_{cfg['id']}"}
-        for cfg in configs
-    )
+    # Enhanced: Add device type prefix for clarity
+    for i, cfg in enumerate(configs, 1):
+        # Use name if available, fallback to numbered display
+        display_name = cfg.get('name') or f"{t('config')} {i}"
+        buttons.append({
+            'text': display_name,
+            'callback_data': f"cfg_{cfg['id']}"
+        })
 
     if has_active_sub:
         buttons.append({'text': t('extend'), 'callback_data': 'renew_subscription'})
@@ -101,12 +106,27 @@ def get_language_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarkup:
     ])
 
 
-def sub_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    buttons = [
-        {'text': t(key).format(price=plan['price']), 'callback_data': key}
-        for key, plan in PLANS.items()
-        if key.startswith('sub_')
-    ]
+def sub_kb(t: Callable[[str], str], is_extension: bool = False) -> InlineKeyboardMarkup:
+    """Subscription purchase/extension keyboard
+
+    Args:
+        t: Translation function
+        is_extension: If True, shows "+ X months" format for extensions
+    """
+    if is_extension:
+        # Extension format with "+" prefix
+        buttons = [
+            {'text': t(f'extend_by_{key.split("_")[1]}').format(price=plan['price']), 'callback_data': key}
+            for key, plan in PLANS.items()
+            if key.startswith('sub_')
+        ]
+    else:
+        # New subscription format
+        buttons = [
+            {'text': t(key).format(price=plan['price']), 'callback_data': key}
+            for key, plan in PLANS.items()
+            if key.startswith('sub_')
+        ]
 
     buttons.append({'text': t('back_main'), 'callback_data': 'back_main'})
 
@@ -115,10 +135,10 @@ def sub_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
 
 def get_payment_methods_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarkup:
     return _build_keyboard([
-        {'text': 'TON', 'callback_data': 'pm_ton'},
-        {'text': t('pm_stars'), 'callback_data': 'pm_stars'},
+        {'text': 'TON', 'callback_data': 'select_method_ton'},
+        {'text': t('pm_stars'), 'callback_data': 'select_method_stars'},
         {'text': t('back'), 'callback_data': 'balance'},
-    ])
+    ], adjust=2)
 
 
 def get_referral_keyboard(t: Callable[[str], str], ref_link: str) -> InlineKeyboardMarkup:
@@ -132,3 +152,27 @@ def back_balance(t: Callable[[str], str]) -> InlineKeyboardMarkup:
     return _build_keyboard([
         {'text': t('back'), 'callback_data': 'balance'},
     ])
+
+
+def get_payment_amounts_keyboard(t: Callable[[str], str], method: str) -> InlineKeyboardMarkup:
+    return _build_keyboard([
+        {'text': '200 RUB', 'callback_data': f'amount_{method}_200'},
+        {'text': '500 RUB', 'callback_data': f'amount_{method}_500'},
+        {'text': '1000 RUB', 'callback_data': f'amount_{method}_1000'},
+        {'text': t('custom_amount'), 'callback_data': f'amount_{method}_custom'},
+        {'text': t('back'), 'callback_data': 'add_funds'},
+    ], adjust=[3, 1, 1])
+
+
+def payment_success_actions(t: Callable[[str], str], has_active_sub: bool) -> InlineKeyboardMarkup:
+    """Next action buttons after successful payment"""
+    if has_active_sub:
+        return _build_keyboard([
+            {'text': t('extend'), 'callback_data': 'renew_subscription'},
+            {'text': t('back_main'), 'callback_data': 'back_main'},
+        ])
+    else:
+        return _build_keyboard([
+            {'text': t('buy_sub'), 'callback_data': 'buy_sub'},
+            {'text': t('back_main'), 'callback_data': 'back_main'},
+        ])

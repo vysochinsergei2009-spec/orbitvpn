@@ -12,7 +12,8 @@ from aiogram.utils.keyboard import InlineKeyboardMarkup, InlineKeyboardButton
 from app.core.keyboards import (
     main_kb, balance_kb, set_kb, myvpn_kb, actions_kb,
     get_language_keyboard, instruction_kb, sub_kb,
-    get_payment_methods_keyboard, get_referral_keyboard, back_balance
+    get_payment_methods_keyboard, get_referral_keyboard, back_balance,
+    get_payment_amounts_keyboard, payment_success_actions
 )
 from app.repo.user import UserRepository
 from app.repo.server import ServerRepository
@@ -29,8 +30,7 @@ LOG = get_logger(__name__)
 
 
 class PaymentState(StatesGroup):
-    waiting_amount = State()
-    method = State()
+    waiting_custom_amount = State()
 
 async def get_repositories(session=None):
     redis_client = await get_redis()
@@ -246,10 +246,12 @@ async def renew_subscription_callback(callback: CallbackQuery, t):
     async with get_session() as session:
         user_repo, _, _ = await get_repositories(session)
         balance = await get_user_balance(user_repo, tg_id)
+        sub_end = await user_repo.get_subscription_end(tg_id)
+        expire_date = format_expire_date(sub_end)
 
         await callback.message.edit_text(
-            f"{t('extend_subscription')}\n\n{t('balance')}: {balance:.2f} RUB",
-            reply_markup=sub_kb(t)
+            f"{t('current_sub_until', expire_date=expire_date)}\n\n{t('extend_subscription')}\n\n{t('balance')}: {balance:.2f} RUB",
+            reply_markup=sub_kb(t, is_extension=True)
         )
 
 
@@ -262,11 +264,21 @@ async def balance_callback(callback: CallbackQuery, t, state: FSMContext):
     async with get_session() as session:
         user_repo, _, _ = await get_repositories(session)
         balance = await get_user_balance(user_repo, tg_id)
+        has_active_sub = await user_repo.has_active_subscription(tg_id)
 
-        await callback.message.edit_text(
-            t('balance_text', balance=balance),
-            reply_markup=balance_kb(t)
-        )
+        # Build contextual text
+        text = t('balance_text', balance=balance)
+
+        if has_active_sub:
+            sub_end = await user_repo.get_subscription_end(tg_id)
+            expire_date = format_expire_date(sub_end)
+            text += f"\n\n{t('subscription_active_until', expire_date=expire_date)}"
+        else:
+            # Show cheapest subscription price as context
+            cheapest = min(PLANS.values(), key=lambda x: x['price'])
+            text += f"\n\n{t('subscription_from', price=cheapest['price'])}"
+
+        await callback.message.edit_text(text, reply_markup=balance_kb(t))
 
 
 @router.callback_query(F.data == 'add_funds')
@@ -278,54 +290,75 @@ async def add_funds_callback(callback: CallbackQuery, t):
     )
 
 
-@router.callback_query(F.data.startswith('pm_'))
-async def payment_method_callback(callback: CallbackQuery, t, state: FSMContext):
+@router.callback_query(F.data.startswith('select_method_'))
+async def select_payment_method(callback: CallbackQuery, t):
     await callback.answer()
-    method = callback.data.split('_')[1]
+    method = callback.data.replace('select_method_', '')
+    await callback.message.edit_text(
+        t('select_amount'),
+        reply_markup=get_payment_amounts_keyboard(t, method)
+    )
 
-    await state.set_state(PaymentState.waiting_amount)
-    await state.set_data({'method': method})
-    await callback.message.edit_text(t('enter_amount'), reply_markup=back_balance(t))
+
+@router.callback_query(F.data.startswith('amount_'))
+async def process_amount_selection(callback: CallbackQuery, t, state: FSMContext):
+    await callback.answer()
+    parts = callback.data.split('_')
+    method_str = parts[1]
+    amount_str = parts[2]
+
+    if amount_str == 'custom':
+        await state.set_state(PaymentState.waiting_custom_amount)
+        await state.set_data({'method': method_str})
+        await callback.message.edit_text(t('enter_amount'), reply_markup=back_balance(t))
+        return
+
+    await process_payment(callback, t, method_str, Decimal(amount_str))
 
 
-@router.message(StateFilter(PaymentState.waiting_amount))
-async def process_amount(message: Message, state: FSMContext, t):
+@router.message(StateFilter(PaymentState.waiting_custom_amount))
+async def process_custom_amount(message: Message, state: FSMContext, t):
     tg_id = message.from_user.id
 
     try:
         amount = Decimal(message.text)
-        if amount < 200:
-            raise ValueError("Amount too low")
-        if amount > 100000:
-            raise ValueError("Amount too high")
-        # Check for overflow and invalid decimal values
+        if amount < 200 or amount > 100000:
+            raise ValueError("Amount out of range")
         if amount.as_tuple().exponent < -2:
             raise ValueError("Too many decimal places")
     except (ValueError, TypeError) as e:
-        LOG.error(f"Invalid amount input by user {tg_id}: {message.text} - {e}")
+        LOG.error(f"Invalid amount from user {tg_id}: {message.text} - {e}")
         await message.answer(t('invalid_amount'))
         return
 
     data = await state.get_data()
+    method_str = data.get('method')
+    await state.clear()
+
+    await process_payment(message, t, method_str, amount)
+
+
+async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
+    tg_id = msg_or_callback.from_user.id
+    is_callback = isinstance(msg_or_callback, CallbackQuery)
+
     try:
-        method = PaymentMethod(data['method'])
+        method = PaymentMethod(method_str)
     except ValueError:
-        LOG.error(f"Invalid payment method for user {tg_id}: {data['method']}")
-        await message.answer(t('invalid_payment_method'))
-        await state.clear()
+        LOG.error(f"Invalid method for user {tg_id}: {method_str}")
+        text = t('error_creating_payment')
+        if is_callback:
+            await msg_or_callback.message.edit_text(text, reply_markup=balance_kb(t))
+        else:
+            await msg_or_callback.answer(text)
         return
 
     async with get_session() as session:
         try:
             redis_client = await get_redis()
             manager = PaymentManager(session, redis_client)
-            result = await manager.create_payment(
-                t,
-                tg_id=tg_id,
-                method=method,
-                amount=amount,
-                chat_id=message.chat.id if method == PaymentMethod.STARS else None
-            )
+            chat_id = msg_or_callback.message.chat.id
+            result = await manager.create_payment(t, tg_id=tg_id, method=method, amount=amount, chat_id=chat_id)
 
             if method == PaymentMethod.TON:
                 text = t(
@@ -334,20 +367,27 @@ async def process_amount(message: Message, state: FSMContext, t):
                     wallet=f"<pre><code>{result.wallet}</code></pre>",
                     comment=f'<pre>{result.comment}</pre>'
                 )
-                await message.answer(text, parse_mode="HTML")
+                if is_callback:
+                    await msg_or_callback.message.edit_text(text, parse_mode="HTML")
+                else:
+                    await msg_or_callback.answer(text, parse_mode="HTML")
 
             elif method == PaymentMethod.STARS and result.url:
                 kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="💳 Оплатить", url=result.url)]
+                    [InlineKeyboardButton(text=t('pay_button'), url=result.url)]
                 ])
-                await message.answer(result.text, reply_markup=kb)
-
-            await state.clear()
+                if is_callback:
+                    await msg_or_callback.message.edit_text(result.text, reply_markup=kb)
+                else:
+                    await msg_or_callback.answer(result.text, reply_markup=kb)
 
         except Exception as e:
-            LOG.error(f"Payment creation error for user {tg_id}: {type(e).__name__}: {e}")
-            await message.answer(t('error_creating_payment'))
-            await state.clear()
+            LOG.error(f"Payment error for user {tg_id}: {type(e).__name__}: {e}")
+            text = t('error_creating_payment')
+            if is_callback:
+                await msg_or_callback.message.edit_text(text, reply_markup=balance_kb(t))
+            else:
+                await msg_or_callback.answer(text)
 
 
 @router.pre_checkout_query()
@@ -417,7 +457,15 @@ async def successful_payment(message: Message, t):
         # Use database lock to prevent race conditions with duplicate payment events
         if await payment_repo.mark_payment_processed_with_lock(payment_id, tg_id, rub_amount):
             await user_repo.change_balance(tg_id, rub_amount)
-            await message.answer(t('payment_success', amount=float(rub_amount)))
+
+            # Check if user has active subscription
+            has_active_sub = await user_repo.has_active_subscription(tg_id)
+
+            # Show success message with next action
+            await message.answer(
+                t('payment_success', amount=float(rub_amount)),
+                reply_markup=payment_success_actions(t, has_active_sub)
+            )
         else:
             await message.answer(t('payment_already_processed'))
 

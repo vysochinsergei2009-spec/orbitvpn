@@ -23,5 +23,4 @@ async def get_session():
         yield session
 
 async def close_db():
-    """Close database engine and all connections"""
     await engine.dispose()
