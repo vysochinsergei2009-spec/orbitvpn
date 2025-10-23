@@ -54,9 +54,15 @@ def _load_plans(file_path: str = "plans.json") -> dict[str, Any]:
 
 # --- Telegram Bot Configuration ---
 BOT_TOKEN: Final[str] = _get_required_env("BOT_TOKEN")
-TPH_TOKEN: Final[str] = _get_required_env('TELEGRAPH_TOKEN')
 
 bot: Final[Bot] = Bot(token=BOT_TOKEN)
+
+# --- Installation Guide URLs ---
+INSTALL_GUIDE_BASE_URL: Final[str] = "https://install.orbitcorp.space:8443"
+INSTALL_GUIDE_URLS: Final[dict[str, str]] = {
+    "ru": f"{INSTALL_GUIDE_BASE_URL}/ru.html",
+    "en": f"{INSTALL_GUIDE_BASE_URL}/en.html",
+}
 
 # --- Logging Configuration ---
 IS_LOGGING: Final[bool] = True
@@ -102,6 +108,7 @@ TELEGRAM_STARS_RATE: Final[float] = 1.35  # Stars to RUB conversion
 # --- Business Logic Constants ---
 FREE_TRIAL_DAYS: Final[int] = 7
 REFERRAL_BONUS: Final[float] = 50.0
+MAX_IPS_PER_CONFIG: Final[int] = _get_env_int("MAX_IPS_PER_CONFIG", 2)  # Max concurrent devices per VPN config
 
 # --- Subscription Plans ---
 PLANS: Final[dict[str, Any]] = _load_plans()

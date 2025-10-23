@@ -6,8 +6,8 @@ import qrcode
 
 from app.core.keyboards import actions_kb, sub_kb, qr_delete_kb
 from app.repo.db import get_session
-from app.locales.tph import get_install_guide_url
 from app.utils.logging import get_logger
+from config import INSTALL_GUIDE_URLS
 from .utils import safe_answer_callback, get_repositories, update_configs_view
 
 router = Router()
@@ -68,7 +68,7 @@ async def config_selected(callback: CallbackQuery, t, lang: str):
             await callback.message.edit_text(t('config_not_found'), reply_markup=actions_kb(t, cfg_id))
             return
 
-        install_url = await get_install_guide_url(lang)
+        install_url = INSTALL_GUIDE_URLS.get(lang, INSTALL_GUIDE_URLS["ru"])
 
         text = f"{t('your_config')}\n\n{t('config_selected')}\n<pre><code>{cfg['vless_link']}</code></pre>\n<a href='{install_url}'>{t('how_to_install')}</a>"
         await callback.message.edit_text(

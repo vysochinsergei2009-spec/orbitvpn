@@ -108,12 +108,8 @@ class TonTransaction(Base):
 class User(Base):
     __tablename__ = "users"
     tg_id = Column(BigInteger, primary_key=True)
-    user_ip = Column(Text)
     balance = Column(Numeric, default=0)
-    plan = Column(Text)
     subscription_end = Column(DateTime)
-    traffic_used = Column(BigInteger, default=0)
-    max_traffic = Column(BigInteger, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     username = Column(Text)
     lang = Column(String, default="ru")

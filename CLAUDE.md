@@ -24,7 +24,7 @@ boton.sh
 botoff.sh
 
 # Direct run (for development)
-python run.py
+python3 run.py
 ```
 
 ### Environment Setup

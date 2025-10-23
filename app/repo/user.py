@@ -66,8 +66,7 @@ class UserRepository(BaseRepository):
         self,
         tg_id: int,
         username: str,
-        referrer_id: Optional[int] = None,
-        user_ip: Optional[str] = None
+        referrer_id: Optional[int] = None
     ) -> bool:
         redis = await self.get_redis()  # Замена _get_redis на get_redis
         now = datetime.utcnow()
@@ -79,9 +78,7 @@ class UserRepository(BaseRepository):
             new_user = User(
                 tg_id=tg_id,
                 username=username,
-                user_ip=user_ip,
                 balance=0,
-                plan=None,
                 configs=0,
                 lang='ru',
                 referrer_id=referrer_id,

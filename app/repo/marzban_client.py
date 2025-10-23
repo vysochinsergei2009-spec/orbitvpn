@@ -14,6 +14,7 @@ from sqlalchemy import select
 from app.repo.models import MarzbanInstance
 from app.repo.db import get_session
 from app.utils.logging import get_logger
+from config import MAX_IPS_PER_CONFIG
 
 LOG = get_logger(__name__)
 
@@ -246,6 +247,7 @@ class MarzbanClient:
         username: str,
         days: int,
         data_limit: int = 50,
+        max_ips: Optional[int] = None,
         manual_instance_id: Optional[str] = None
     ):
         """
@@ -255,6 +257,7 @@ class MarzbanClient:
             username: Unique username for the user
             days: Subscription duration in days
             data_limit: Traffic limit in GB
+            max_ips: Maximum concurrent IPs (devices) allowed. Defaults to MAX_IPS_PER_CONFIG from config
             manual_instance_id: Optional instance ID for manual selection
 
         Returns:
@@ -265,24 +268,49 @@ class MarzbanClient:
         """
         instance, api, node_id = await self.get_best_instance_and_node(manual_instance_id)
 
-        try:
-            # Note: aiomarzban currently doesn't support explicit node selection in add_user
-            # Marzban distributes users automatically based on node configuration
-            # The node_id we selected is for tracking/logging purposes
+        # Use default from config if not specified
+        if max_ips is None:
+            max_ips = MAX_IPS_PER_CONFIG
 
-            new_user = await api.add_user(
-                username=username,
-                days=days,
-                data_limit=data_limit,
+        try:
+            # Note: aiomarzban v1.0.3 doesn't support ip_limit in UserCreate model
+            # We need to manually add it to the request payload
+
+            # First, prepare the user data using the standard method
+            from aiomarzban.models import UserCreate, UserStatusCreate
+            from aiomarzban.utils import future_unix_time, gb_to_bytes
+            from aiomarzban.enums import Methods
+
+            expire = future_unix_time(days=days)
+
+            # Create the user data model
+            user_data = UserCreate(
+                proxies=api.default_proxies,
+                expire=expire,
+                data_limit=gb_to_bytes(data_limit),
                 data_limit_reset_strategy=UserDataLimitResetStrategy.month,
+                inbounds=api.default_inbounds,
+                username=username,
+                status=UserStatusCreate.active,
             )
+
+            # Convert to dict and add ip_limit (not supported by aiomarzban model)
+            payload = user_data.model_dump()
+            payload['ip_limit'] = max_ips
+
+            # Make the request directly using the API's internal method
+            resp = await api._request(Methods.POST, "/user", data=payload)
+
+            # Parse response manually
+            from aiomarzban.models import UserResponse
+            new_user = UserResponse(**resp)
 
             if not new_user.links:
                 raise ValueError("No VLESS link returned from Marzban")
 
             LOG.info(
                 f"Created user {username} on instance {instance.id} "
-                f"(target node: {node_id if node_id else 'auto'})"
+                f"(target node: {node_id if node_id else 'auto'}, max_ips: {max_ips})"
             )
 
             return new_user
@@ -346,6 +374,7 @@ class MarzbanClient:
         self,
         username: str,
         instance_id: Optional[str] = None,
+        max_ips: Optional[int] = None,
         **kwargs
     ):
         """
@@ -354,6 +383,7 @@ class MarzbanClient:
         Args:
             username: Username to modify
             instance_id: If known, specify the instance; otherwise tries all instances
+            max_ips: Maximum concurrent IPs (devices) allowed
             **kwargs: Parameters to update (expire, data_limit, etc.)
         """
         if instance_id:
@@ -364,8 +394,32 @@ class MarzbanClient:
         for instance in instances:
             try:
                 api = self._get_or_create_api(instance)
-                await api.modify_user(username, **kwargs)
-                LOG.info(f"Modified user {username} on instance {instance.id}")
+
+                # If max_ips is specified, we need to add it to the payload manually
+                if max_ips is not None:
+                    from aiomarzban.models import UserModify
+                    from aiomarzban.utils import gb_to_bytes
+                    from aiomarzban.enums import Methods
+
+                    # Convert data_limit to bytes if present
+                    if 'data_limit' in kwargs and kwargs['data_limit'] is not None:
+                        kwargs['data_limit'] = gb_to_bytes(kwargs['data_limit'])
+
+                    # Create UserModify model
+                    user_data = UserModify(**kwargs)
+
+                    # Convert to dict and add ip_limit
+                    payload = user_data.model_dump(exclude_none=True)
+                    payload['ip_limit'] = max_ips
+
+                    # Make request directly
+                    await api._request(Methods.PUT, f"/user/{username}", data=payload)
+                    LOG.info(f"Modified user {username} on instance {instance.id} (max_ips: {max_ips})")
+                else:
+                    # Use standard method if no ip_limit needed
+                    await api.modify_user(username, **kwargs)
+                    LOG.info(f"Modified user {username} on instance {instance.id}")
+
                 return
             except Exception:
                 continue
