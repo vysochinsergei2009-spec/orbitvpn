@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Инструкция по установке VPN - OrbitVPN</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Инструкция по установке VPN</h1>
+            <p>Быстрая настройка за 5 минут</p>
+        </div>
+
+        <div class="nav">
+            <h4>Навигация</h4>
+            <a href="#ios">Установка на iOS</a>
+            <a href="#apps">Приложения для всех платформ</a>
+            <a href="#notes">Важные замечания</a>
+        </div>
+
+        <div class="section" id="ios">
+            <h3>Установка на iOS / iPadOS</h3>
+
+            <div class="step">
+                <h4>Шаг 1: Установите приложение</h4>
+                <p>Откройте <strong>App Store</strong> и установите <strong>V2RayTun</strong> (рекомендуем) или <strong>Streisand</strong></p>
+            </div>
+
+            <div class="step">
+                <h4>Шаг 2: Скопируйте VLESS-ссылку</h4>
+                <p>Вернитесь в бот и скопируйте VLESS-ссылку. Она выглядит так:</p>
+                <pre>vless://xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx@...</pre>
+            </div>
+
+            <div class="step">
+                <h4>Шаг 3: Импортируйте конфигурацию</h4>
+                <p>Откройте приложение V2RayTun → нажмите <strong>"+"</strong> (вверху справа) → выберите <strong>"Import from clipboard"</strong></p>
+            </div>
+
+            <div class="step">
+                <h4>Шаг 4: Подключитесь</h4>
+                <p>Выберите добавленный сервер из списка и нажмите <strong>Подключиться</strong>. При первом подключении iOS запросит разрешение на добавление VPN-конфигурации — нажмите <strong>"Разрешить"</strong></p>
+            </div>
+
+            <div class="step step-5">
+                <h4>Шаг 5: Готово!</h4>
+                <p>В статусной строке появится иконка VPN. Теперь вы можете свободно пользоваться интернетом!</p>
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="section" id="apps">
+            <h3>Приложения для всех платформ</h3>
+
+            <div class="app-list">
+                <strong>iOS:</strong>
+                <a href="https://apps.apple.com/ru/app/v2raytun/id6476628951?l=en-GB">V2RayTun</a>
+                <a href="https://apps.apple.com/app/streisand/id6450534064">Streisand</a>
+                <a href="https://apps.apple.com/app/v2box-v2ray-client/id6446814690">V2Box</a>
+            </div>
+
+            <div class="app-list">
+                <strong>Android:</strong>
+                <a href="https://play.google.com/store/apps/details?id=com.v2ray.ang">v2rayNG</a>
+            </div>
+
+            <div class="app-list">
+                <strong>macOS:</strong>
+                <a href="https://apps.apple.com/pl/app/v2raytun/id6476628951">V2RayTun</a>
+                <a href="https://apps.apple.com/app/streisand/id6450534064">Streisand</a>
+                <a href="https://github.com/MatsuriDayo/nekoray/releases">Nekoray</a>
+            </div>
+
+            <div class="app-list">
+                <strong>Windows:</strong>
+                <a href="https://github.com/MatsuriDayo/nekoray/releases">Nekoray</a>
+                <a href="https://github.com/2dust/v2rayN">V2RayN</a>
+            </div>
+
+            <div class="app-list">
+                <strong>Linux:</strong>
+                <a href="https://github.com/MatsuriDayo/nekoray/releases">Nekoray</a>
+            </div>
+
+            <p style="margin-top: 20px; font-style: italic; color: #666; font-size: 14px;">
+                Процесс аналогичен на всех платформах: установите приложение → импортируйте VLESS-ссылку → подключитесь
+            </p>
+        </div>
+
+        <hr>
+
+        <div class="important" id="notes">
+            <h3>Важные замечания</h3>
+            <ul>
+                <li>Один конфиг работает на <strong>всех ваших устройствах</strong> одновременно</li>
+                <li>Сохраните VLESS-ссылку в <strong>надежном месте</strong></li>
+                <li>Проблемы с подключением? Попробуйте <strong>перезапустить приложение</strong></li>
+                <li>После подключения проверьте работу, <strong>открыв любой сайт</strong></li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            Остались вопросы? Обратитесь в поддержку через бота
+        </div>
+    </div>
+</body>
+</html>

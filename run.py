@@ -27,11 +27,11 @@ async def main():
         default_limit=0.8,
         custom_limits={
             '/start': 3.0,
-            'add_funds': 5.0,  # Payment creation
-            'pm_ton': 10.0,  # TON payment method selection
-            'pm_stars': 10.0,  # Stars payment method selection
-            'buy_sub': 3.0,  # Subscription purchase
-            'sub_1m': 2.0,  # Individual subscription plans
+            'add_funds': 5.0,
+            'pm_ton': 10.0,
+            'pm_stars': 10.0,
+            'buy_sub': 3.0,
+            'sub_1m': 2.0,
             'sub_3m': 2.0,
             'sub_6m': 2.0,
             'sub_12m': 2.0,
@@ -56,7 +56,7 @@ async def main():
             pass
 
         await bot.session.close()
-        await close_db()  # Close database connections
+        await close_db()
         await close_cache()
         LOG.info("Bot stopped cleanly")
 

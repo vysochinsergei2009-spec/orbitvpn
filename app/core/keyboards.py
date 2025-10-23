@@ -27,6 +27,12 @@ def _build_keyboard(
         return builder.adjust(*adjust).as_markup()
 
 
+def qr_delete_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
+    return _build_keyboard([
+        {'text': t('delete_config'), 'callback_data': 'delete_qr_msg'},
+    ])
+
+
 def main_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
     return _build_keyboard([
         {'text': t('my_vpn'), 'callback_data': 'myvpn'},
