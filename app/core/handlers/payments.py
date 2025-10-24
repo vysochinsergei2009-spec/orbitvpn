@@ -135,20 +135,62 @@ async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
                     wallet=f"<pre><code>{result.wallet}</code></pre>",
                     comment=f'<pre>{result.comment}</pre>'
                 )
+                # Add cancel button for TON payments
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text=t('cancel_payment'), callback_data=f'cancel_payment_{result.payment_id}')]
+                ])
                 if is_callback:
-                    await msg_or_callback.message.edit_text(text, parse_mode="HTML")
+                    await msg_or_callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
                 else:
-                    await msg_or_callback.answer(text, parse_mode="HTML")
+                    await msg_or_callback.answer(text, parse_mode="HTML", reply_markup=kb)
 
             elif method == PaymentMethod.STARS and result.url:
                 kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text=t('pay_button'), url=result.url)]
+                    [InlineKeyboardButton(text=t('pay_button'), url=result.url)],
+                    [InlineKeyboardButton(text=t('cancel_payment'), callback_data=f'cancel_payment_{result.payment_id}')]
                 ])
                 if is_callback:
                     await msg_or_callback.message.edit_text(result.text, reply_markup=kb)
                 else:
                     await msg_or_callback.answer(result.text, reply_markup=kb)
 
+            elif method == PaymentMethod.CRYPTOBOT and result.pay_url:
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text=t('pay_button'), url=result.pay_url)],
+                    [InlineKeyboardButton(text=t('cancel_payment'), callback_data=f'cancel_payment_{result.payment_id}')]
+                ])
+                if is_callback:
+                    await msg_or_callback.message.edit_text(result.text, reply_markup=kb)
+                else:
+                    await msg_or_callback.answer(result.text, reply_markup=kb)
+
+        except ValueError as e:
+            error_msg = str(e)
+            # Check if it's an active payment error
+            if error_msg.startswith("active_payment:"):
+                parts = error_msg.split(":")
+                active_payment_id = int(parts[1])
+                active_amount = parts[2]
+                active_method = parts[3]
+
+                # Show choice to user: continue with existing or create new
+                text = t('active_payment_exists', amount=active_amount, method=active_method.upper())
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text=t('continue_payment'), callback_data=f'continue_payment_{active_payment_id}')],
+                    [InlineKeyboardButton(text=t('create_new_payment'), callback_data=f'force_payment_{method_str}_{amount}')],
+                    [InlineKeyboardButton(text=t('back'), callback_data='balance')]
+                ])
+                if is_callback:
+                    await msg_or_callback.message.edit_text(text, reply_markup=kb)
+                else:
+                    await msg_or_callback.answer(text, reply_markup=kb)
+            else:
+                LOG.error(f"Payment error for user {tg_id}: ValueError: {e}")
+                text = t('error_creating_payment')
+                if is_callback:
+                    await msg_or_callback.message.edit_text(text, reply_markup=balance_kb(t))
+                else:
+                    await msg_or_callback.answer(text)
         except Exception as e:
             LOG.error(f"Payment error for user {tg_id}: {type(e).__name__}: {e}")
             text = t('error_creating_payment')
@@ -240,3 +282,165 @@ async def successful_payment(message: Message, t):
             )
         else:
             await message.answer(t('payment_already_processed'))
+
+
+@router.callback_query(F.data.startswith('cancel_payment_'))
+async def cancel_payment_callback(callback: CallbackQuery, t):
+    """Handle payment cancellation"""
+    await safe_answer_callback(callback)
+
+    try:
+        payment_id = int(callback.data.replace('cancel_payment_', ''))
+
+        async with get_session() as session:
+            payment_repo = get_repositories(session)[1]
+
+            # Cancel the payment
+            success = await payment_repo.cancel_payment(payment_id)
+
+            if success:
+                await callback.message.edit_text(
+                    t('payment_cancelled'),
+                    reply_markup=balance_kb(t)
+                )
+            else:
+                await callback.message.edit_text(
+                    t('payment_cancel_error'),
+                    reply_markup=balance_kb(t)
+                )
+    except Exception as e:
+        LOG.error(f"Error cancelling payment: {e}")
+        await callback.message.edit_text(
+            t('payment_cancel_error'),
+            reply_markup=balance_kb(t)
+        )
+
+
+@router.callback_query(F.data.startswith('continue_payment_'))
+async def continue_payment_callback(callback: CallbackQuery, t):
+    """Continue with existing payment"""
+    await safe_answer_callback(callback)
+
+    try:
+        payment_id = int(callback.data.replace('continue_payment_', ''))
+
+        async with get_session() as session:
+            payment_repo = get_repositories(session)[1]
+            payment = await payment_repo.get_payment(payment_id)
+
+            if not payment or payment['status'] != 'pending':
+                await callback.message.edit_text(
+                    t('payment_expired'),
+                    reply_markup=balance_kb(t)
+                )
+                return
+
+            # Recreate payment message with the existing payment
+            method = PaymentMethod(payment['method'])
+
+            if method == PaymentMethod.TON:
+                text = t(
+                    'ton_payment_instruction',
+                    ton_amount=f'<b>{payment["expected_crypto_amount"]} TON</b>',
+                    wallet=f"<pre><code>{payment.get("wallet", "N/A")}</code></pre>",
+                    comment=f'<pre>{payment["comment"]}</pre>'
+                )
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text=t('cancel_payment'), callback_data=f'cancel_payment_{payment_id}')]
+                ])
+                await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+
+            elif method == PaymentMethod.CRYPTOBOT:
+                extra_data = payment.get('extra_data', {})
+                invoice_id = extra_data.get('invoice_id') if extra_data else None
+
+                if invoice_id:
+                    # Reconstruct pay URL
+                    from config import CRYPTOBOT_TESTNET
+                    domain = "testnet-pay.crypt.bot" if CRYPTOBOT_TESTNET else "pay.crypt.bot"
+                    pay_url = f"https://{domain}/invoice/{invoice_id}"
+
+                    text = (
+                        t("cryptobot_payment_intro") + "\n\n"
+                        + t("cryptobot_amount", amount=payment['amount']) + "\n\n"
+                        + t("cryptobot_click_button")
+                    )
+                    kb = InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text=t('pay_button'), url=pay_url)],
+                        [InlineKeyboardButton(text=t('cancel_payment'), callback_data=f'cancel_payment_{payment_id}')]
+                    ])
+                    await callback.message.edit_text(text, reply_markup=kb)
+                else:
+                    await callback.message.edit_text(t('error_creating_payment'), reply_markup=balance_kb(t))
+
+            else:
+                await callback.message.edit_text(t('error_creating_payment'), reply_markup=balance_kb(t))
+
+    except Exception as e:
+        LOG.error(f"Error continuing payment: {e}")
+        await callback.message.edit_text(
+            t('error_creating_payment'),
+            reply_markup=balance_kb(t)
+        )
+
+
+@router.callback_query(F.data.startswith('force_payment_'))
+async def force_payment_callback(callback: CallbackQuery, t):
+    """Create new payment even if active one exists"""
+    await safe_answer_callback(callback)
+
+    try:
+        parts = callback.data.replace('force_payment_', '').split('_')
+        method_str = parts[0]
+        amount = Decimal(parts[1])
+
+        tg_id = callback.from_user.id
+
+        async with get_session() as session:
+            redis_client = await get_redis()
+            manager = PaymentManager(session, redis_client)
+            method = PaymentMethod(method_str)
+
+            # Create payment with force_new=True
+            result = await manager.create_payment(
+                t,
+                tg_id=tg_id,
+                method=method,
+                amount=amount,
+                chat_id=callback.message.chat.id,
+                force_new=True
+            )
+
+            # Display payment details
+            if method == PaymentMethod.TON:
+                text = t(
+                    'ton_payment_instruction',
+                    ton_amount=f'<b>{result.expected_crypto_amount} TON</b>',
+                    wallet=f"<pre><code>{result.wallet}</code></pre>",
+                    comment=f'<pre>{result.comment}</pre>'
+                )
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text=t('cancel_payment'), callback_data=f'cancel_payment_{result.payment_id}')]
+                ])
+                await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+
+            elif method == PaymentMethod.STARS and result.url:
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text=t('pay_button'), url=result.url)],
+                    [InlineKeyboardButton(text=t('cancel_payment'), callback_data=f'cancel_payment_{result.payment_id}')]
+                ])
+                await callback.message.edit_text(result.text, reply_markup=kb)
+
+            elif method == PaymentMethod.CRYPTOBOT and result.pay_url:
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text=t('pay_button'), url=result.pay_url)],
+                    [InlineKeyboardButton(text=t('cancel_payment'), callback_data=f'cancel_payment_{result.payment_id}')]
+                ])
+                await callback.message.edit_text(result.text, reply_markup=kb)
+
+    except Exception as e:
+        LOG.error(f"Error creating forced payment: {e}")
+        await callback.message.edit_text(
+            t('error_creating_payment'),
+            reply_markup=balance_kb(t)
+        )

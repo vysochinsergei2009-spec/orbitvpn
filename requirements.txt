@@ -12,3 +12,4 @@ qrcode[pil]
 pillow
 rich
 click
+aiocryptopay

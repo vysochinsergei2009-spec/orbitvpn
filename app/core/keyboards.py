@@ -129,6 +129,7 @@ def get_payment_methods_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarku
     return _build_keyboard([
         {'text': 'TON', 'callback_data': 'select_method_ton'},
         {'text': t('pm_stars'), 'callback_data': 'select_method_stars'},
+        {'text': 'CryptoBot', 'callback_data': 'select_method_cryptobot'},
         {'text': t('back'), 'callback_data': 'balance'},
     ], adjust=1)
 

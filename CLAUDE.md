@@ -78,7 +78,7 @@ Install with: `pip install -r requirements.txt`
 - `redis.py` - Redis client initialization and connection management
 - `rate_limit.py` - RateLimitMiddleware for anti-spam protection
 - `logging.py` - Custom logger setup
-- `txns_updater.py` - TonTransactionsUpdater polls TON blockchain for payment confirmations
+- `updater.py` - TonTransactionsUpdater polls TON blockchain for payment confirmations
 - `rates.py` - Cryptocurrency rate fetching utilities
 
 **app/locales/**

@@ -109,7 +109,25 @@ LOCALES = {
         'config_not_found': 'Конфигурация не найдена',
         'error_deleting_config': 'Ошибка при удалении конфигурации',
         'no_servers_or_cache_error': 'Нет доступных серверов. Попробуйте позже',
-        'payment_already_processed': 'Платёж уже обработан'
+        'payment_already_processed': 'Платёж уже обработан',
+        # TON payment strings
+        'ton_payment_intro': 'Оплата через TON',
+        'ton_send_amount': 'Сумма к оплате: {expected_ton} TON (~{amount} RUB)',
+        'ton_wallet': 'Кошелёк: {wallet}',
+        'ton_comment': 'Комментарий: {comment}',
+        'ton_comment_warning': '⚠️ Важно: Без комментария платёж не будет засчитан!',
+        # CryptoBot payment strings
+        'cryptobot_payment_intro': 'Оплата через CryptoBot',
+        'cryptobot_amount': 'Сумма к оплате: {amount} RUB',
+        'cryptobot_click_button': 'Нажмите кнопку ниже для оплаты',
+        # Payment cancellation
+        'cancel_payment': 'Отменить платёж',
+        'payment_cancelled': 'Платёж отменён',
+        'payment_cancel_error': 'Не удалось отменить платёж',
+        'payment_expired': 'Платёж истёк',
+        'active_payment_exists': 'У вас уже есть активный платёж на {amount} RUB через {method}. Хотите продолжить с ним или создать новый?',
+        'continue_payment': 'Продолжить',
+        'create_new_payment': 'Создать новый'
     },
     "en": {
         "cmd_start": "Welcome to OrbitVPN! Choose an option:",
@@ -221,7 +239,25 @@ LOCALES = {
         'config_not_found': 'Configuration not found',
         'error_deleting_config': 'Error deleting configuration',
         'no_servers_or_cache_error': 'No available servers. Try again later',
-        'payment_already_processed': 'Payment already processed'
+        'payment_already_processed': 'Payment already processed',
+        # TON payment strings
+        'ton_payment_intro': 'Payment via TON',
+        'ton_send_amount': 'Amount to pay: {expected_ton} TON (~{amount} RUB)',
+        'ton_wallet': 'Wallet: {wallet}',
+        'ton_comment': 'Comment: {comment}',
+        'ton_comment_warning': '⚠️ Important: Payment without comment will not be credited!',
+        # CryptoBot payment strings
+        'cryptobot_payment_intro': 'Payment via CryptoBot',
+        'cryptobot_amount': 'Amount to pay: {amount} RUB',
+        'cryptobot_click_button': 'Click the button below to pay',
+        # Payment cancellation
+        'cancel_payment': 'Cancel payment',
+        'payment_cancelled': 'Payment cancelled',
+        'payment_cancel_error': 'Failed to cancel payment',
+        'payment_expired': 'Payment expired',
+        'active_payment_exists': 'You already have an active payment for {amount} RUB via {method}. Continue with it or create a new one?',
+        'continue_payment': 'Continue',
+        'create_new_payment': 'Create new'
     }
 }
 

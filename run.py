@@ -5,6 +5,7 @@ from app.locales.locales_mw import LocaleMiddleware
 from app.utils.redis import init_cache, close_cache
 from app.utils.rate_limit import RateLimitMiddleware, cleanup_rate_limit
 from app.utils.logging import get_logger, setup_aiogram_logger
+from app.utils.payment_cleanup import PaymentCleanupTask
 from app.repo.db import close_db
 from app.repo.init_db import init_database
 from config import bot
@@ -40,18 +41,26 @@ async def main():
     dp.message.middleware(limiter)
     dp.callback_query.middleware(limiter)
 
-    cleanup_task = asyncio.create_task(
+    # Start background cleanup tasks
+    rate_limit_cleanup_task = asyncio.create_task(
         cleanup_rate_limit(limiter, interval=3600, max_age=3600)
     )
+
+    # Start payment cleanup task (checks every 5 minutes, deletes after 7 days)
+    payment_cleanup = PaymentCleanupTask(check_interval_seconds=300, cleanup_days=7)
+    payment_cleanup.start()
 
     LOG.info("Bot started...")
 
     try:
         await dp.start_polling(bot)
     finally:
-        cleanup_task.cancel()
+        # Stop cleanup tasks
+        rate_limit_cleanup_task.cancel()
+        payment_cleanup.stop()
+
         try:
-            await cleanup_task
+            await rate_limit_cleanup_task
         except asyncio.CancelledError:
             pass
 

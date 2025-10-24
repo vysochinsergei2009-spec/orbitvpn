@@ -26,6 +26,11 @@ class PaymentRepository(BaseRepository):
         comment: Optional[str] = None,
         expected_crypto_amount: Optional[Decimal] = None
     ) -> int:
+        # Set expiration time for pending payments
+        expires_at = None
+        if status == 'pending':
+            expires_at = datetime.utcnow() + timedelta(minutes=PAYMENT_TIMEOUT_MINUTES)
+
         payment = PaymentModel(
             tg_id=tg_id,
             method=method,
@@ -33,7 +38,8 @@ class PaymentRepository(BaseRepository):
             currency=currency,
             status=status,
             comment=comment,
-            expected_crypto_amount=expected_crypto_amount
+            expected_crypto_amount=expected_crypto_amount,
+            expires_at=expires_at
         )
         self.session.add(payment)
         await self.session.commit()
@@ -146,3 +152,54 @@ class PaymentRepository(BaseRepository):
             )
         )
         return result.scalar_one_or_none() is not None
+
+    async def update_payment_metadata(self, payment_id: int, metadata: dict):
+        """Update payment extra_data (e.g., CryptoBot invoice_id)"""
+        stmt = update(PaymentModel).where(PaymentModel.id == payment_id).values(extra_data=metadata)
+        await self.session.execute(stmt)
+        await self.session.commit()
+
+    async def cancel_payment(self, payment_id: int) -> bool:
+        """Cancel a pending payment"""
+        stmt = update(PaymentModel).where(
+            PaymentModel.id == payment_id,
+            PaymentModel.status == 'pending'
+        ).values(status='cancelled', confirmed_at=datetime.utcnow())
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.rowcount > 0
+
+    async def get_active_pending_payments(self, tg_id: int) -> List[Dict]:
+        """Get active (non-expired) pending payments for a user"""
+        now = datetime.utcnow()
+        query = select(PaymentModel).where(
+            PaymentModel.tg_id == tg_id,
+            PaymentModel.status == 'pending',
+            PaymentModel.expires_at > now
+        ).order_by(PaymentModel.created_at.desc())
+        result = await self.session.execute(query)
+        payments = result.scalars().all()
+        return [p.__dict__ for p in payments]
+
+    async def expire_old_payments(self) -> int:
+        """Mark expired pending payments as expired"""
+        now = datetime.utcnow()
+        stmt = update(PaymentModel).where(
+            PaymentModel.status == 'pending',
+            PaymentModel.expires_at < now
+        ).values(status='expired')
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.rowcount
+
+    async def cleanup_old_payments(self, days: int = 7) -> int:
+        """Delete old expired/cancelled payments (older than specified days)"""
+        threshold = datetime.utcnow() - timedelta(days=days)
+        from sqlalchemy import delete
+        stmt = delete(PaymentModel).where(
+            PaymentModel.status.in_(['expired', 'cancelled']),
+            PaymentModel.created_at < threshold
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.rowcount

@@ -101,6 +101,10 @@ TON_EXPLORER_TX_URL: Final[str] = f"https://tonviewer.com/{TON_ADDRESS}"
 TON_RUB_RATE: Final[float] = 220.0  # May be overridden by dynamic rates
 TON_CHECK_INTERVAL: Final[int] = 30  # Blockchain polling interval in seconds
 
+# --- CryptoBot Payment Gateway Configuration ---
+CRYPTOBOT_TOKEN: Final[str] = os.getenv("CRYPTOBOT_TOKEN", "")  # Optional: will be set in .env
+CRYPTOBOT_TESTNET: Final[bool] = os.getenv("CRYPTOBOT_TESTNET", "false").lower() == "true"
+
 # --- Payment Configuration ---
 PAYMENT_TIMEOUT_MINUTES: Final[int] = 10
 TELEGRAM_STARS_RATE: Final[float] = 1.35  # Stars to RUB conversion
