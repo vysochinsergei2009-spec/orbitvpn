@@ -5,7 +5,6 @@ from aiogram.types import CallbackQuery
 from aiogram.exceptions import TelegramBadRequest
 
 from app.repo.user import UserRepository
-from app.repo.server import ServerRepository
 from app.repo.payments import PaymentRepository
 from app.utils.logging import get_logger
 from app.utils.redis import get_redis
@@ -23,15 +22,13 @@ async def safe_answer_callback(callback: CallbackQuery, text: str = None, show_a
             raise
 
 
-async def get_repositories(session=None):
+async def get_repositories(session):
+    """Get repository instances with Redis client."""
     redis_client = await get_redis()
-    if session:
-        return (
-            UserRepository(session, redis_client),
-            ServerRepository(redis_client),
-            PaymentRepository(session, redis_client)
-        )
-    return redis_client
+    return (
+        UserRepository(session, redis_client),
+        PaymentRepository(session, redis_client)
+    )
 
 
 def extract_referrer_id(text: str) -> Optional[int]:

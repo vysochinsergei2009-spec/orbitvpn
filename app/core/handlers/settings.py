@@ -29,12 +29,13 @@ async def set_lang_callback(callback: CallbackQuery, t):
     tg_id = callback.from_user.id
 
     async with get_session() as session:
-        user_repo, _, _ = await get_repositories(session)
+        user_repo, _ = await get_repositories(session)
         await user_repo.set_lang(tg_id, lang)
 
     await safe_answer_callback(callback, t("language_updated"), show_alert=True)
 
-    new_t = lambda key, **kwargs: t(key=key, lang=lang)
+    from app.locales.locales import get_translator
+    new_t = get_translator(lang)
     await callback.message.edit_text(
         new_t("settings_text"),
         reply_markup=set_kb(new_t)

@@ -9,7 +9,7 @@ body {
     color: #d4d4d4;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
     line-height: 1.65;
-    padding: 30px 20px;
+    padding: 0;
     font-size: 15px;
     overflow-x: hidden;
 }
@@ -41,9 +41,97 @@ body::after {
     pointer-events: none;
 }
 
+/* Top Navigation */
+.top-nav {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 16px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 600;
+    color: #fff;
+    text-decoration: none;
+    transition: opacity 0.3s ease;
+}
+
+.logo:hover {
+    opacity: 0.8;
+}
+
+.logo-icon {
+    font-size: 24px;
+}
+
+.nav-links {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+}
+
+.nav-links a {
+    color: #a8a8a8;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.3s ease;
+    position: relative;
+}
+
+.nav-links a::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: #0a84ff;
+    transition: width 0.3s ease;
+}
+
+.nav-links a:hover,
+.nav-links a.active {
+    color: #fff;
+}
+
+.nav-links a:hover::after,
+.nav-links a.active::after {
+    width: 100%;
+}
+
+.lang-switch {
+    padding: 6px 14px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.lang-switch:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+}
+
 .container {
     max-width: 680px;
     margin: 0 auto;
+    padding: 30px 20px;
 }
 
 .fade-element {
@@ -392,8 +480,31 @@ hr {
 }
 
 @media (max-width: 768px) {
-    body {
+    .nav-container {
+        padding: 12px 20px;
+    }
+
+    .nav-links {
+        gap: 16px;
+    }
+
+    .nav-links a {
+        font-size: 13px;
+    }
+
+    .logo {
+        font-size: 18px;
+    }
+
+    .logo-icon {
+        font-size: 20px;
+    }
+
+    .container {
         padding: 20px 15px;
+    }
+
+    body {
         font-size: 14px;
     }
 
@@ -407,5 +518,15 @@ hr {
 
     .step {
         padding: 16px 18px;
+    }
+}
+
+@media (max-width: 480px) {
+    .nav-links {
+        gap: 12px;
+    }
+
+    .nav-links a {
+        font-size: 12px;
     }
 }

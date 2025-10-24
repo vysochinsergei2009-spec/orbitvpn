@@ -19,7 +19,7 @@ async def myvpn_callback(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
 
     async with get_session() as session:
-        user_repo, _, _ = await get_repositories(session)
+        user_repo, _ = await get_repositories(session)
         await update_configs_view(callback, t, user_repo, callback.from_user.id)
 
 
@@ -28,7 +28,7 @@ async def add_config_callback(callback: CallbackQuery, t):
     tg_id = callback.from_user.id
 
     async with get_session() as session:
-        user_repo, _, _ = await get_repositories(session)
+        user_repo, _ = await get_repositories(session)
 
         await safe_answer_callback(callback, t('creating_config'))
 
@@ -60,7 +60,7 @@ async def config_selected(callback: CallbackQuery, t, lang: str):
     tg_id = callback.from_user.id
 
     async with get_session() as session:
-        user_repo, _, _ = await get_repositories(session)
+        user_repo, _ = await get_repositories(session)
         configs = await user_repo.get_configs(tg_id)
 
         cfg = next((c for c in configs if c["id"] == cfg_id), None)
@@ -85,7 +85,7 @@ async def config_delete(callback: CallbackQuery, t):
     tg_id = callback.from_user.id
 
     async with get_session() as session:
-        user_repo, _, _ = await get_repositories(session)
+        user_repo, _ = await get_repositories(session)
 
         try:
             await user_repo.delete_config(cfg_id, tg_id)
@@ -104,7 +104,7 @@ async def qr_config(callback: CallbackQuery, t):
     tg_id = callback.from_user.id
 
     async with get_session() as session:
-        user_repo, _, _ = await get_repositories(session)
+        user_repo, _ = await get_repositories(session)
         configs = await user_repo.get_configs(tg_id)
 
         cfg = next((c for c in configs if c["id"] == cfg_id), None)

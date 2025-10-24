@@ -16,8 +16,12 @@ async def cmd_start(message: Message, t):
     username = message.from_user.username or f"unknown_{tg_id}"
     referrer_id = extract_referrer_id(message.text)
 
+    # Prevent self-referral
+    if referrer_id and referrer_id == tg_id:
+        referrer_id = None
+
     async with get_session() as session:
-        user_repo, _, _ = await get_repositories(session)
+        user_repo, _ = await get_repositories(session)
 
         is_new_user = await user_repo.add_if_not_exists(tg_id, username, referrer_id=referrer_id)
         if is_new_user:

@@ -46,9 +46,16 @@ Install with: `pip install -r requirements.txt`
 
 ### Core Components
 
-**app/core/**
-- `handlers.py` - All bot command and callback handlers (start, payments, subscriptions, configs)
-- `keyboards.py` - Inline keyboard layouts for user interactions
+**app/core/handlers/** - Modular handler system
+- `auth.py` - User authentication, /start command, referral handling
+- `configs.py` - VPN configuration creation, display, deletion
+- `payments.py` - Payment flow handlers (TON, Stars), balance operations
+- `subscriptions.py` - Subscription purchase and management
+- `settings.py` - User settings and language selection
+- `utils.py` - Shared utilities for handlers (safe callbacks, repository access)
+- `__init__.py` - Router aggregation
+
+**app/core/keyboards.py** - Inline keyboard layouts for user interactions
 
 **app/repo/** - Repository pattern for data access
 - `base.py` - BaseRepository with Redis integration
@@ -77,10 +84,6 @@ Install with: `pip install -r requirements.txt`
 **app/locales/**
 - `locales.py` - Translation strings for Russian and English
 - `locales_mw.py` - LocaleMiddleware for multi-language support
-
-### Database Schema
-SQL files in `db/` directory:
-- `uslist.sql`, `paymentlist.sql`, `trxnslist.sql`, `reflist.sql`, `servlist.sql`, `configslist.sql` - Database table queries
 
 ### Configuration
 - `config.py` - Central configuration loading from environment variables and plans.json
@@ -151,9 +154,3 @@ FSM states defined in handlers.py:
 - Handlers catch exceptions and log via `LOG.error()` with context
 - User-facing errors return localized messages via translation keys
 - Payment failures tracked with status: "pending", "confirmed", "failed"
-
-### Testing
-No test framework detected in the repository. When adding tests, consider:
-- Mocking Redis and PostgreSQL connections
-- Testing payment flows with fake blockchain transactions
-- Testing rate limiting and locale middleware

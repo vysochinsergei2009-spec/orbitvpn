@@ -32,7 +32,7 @@ async def balance_callback(callback: CallbackQuery, t, state: FSMContext):
     tg_id = callback.from_user.id
 
     async with get_session() as session:
-        user_repo, _, _ = await get_repositories(session)
+        user_repo, _ = await get_repositories(session)
         balance = await get_user_balance(user_repo, tg_id)
         has_active_sub = await user_repo.has_active_subscription(tg_id)
 
@@ -125,7 +125,7 @@ async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
         try:
             redis_client = await get_redis()
             manager = PaymentManager(session, redis_client)
-            chat_id = msg_or_callback.message.chat.id
+            chat_id = msg_or_callback.message.chat.id if is_callback else msg_or_callback.chat.id
             result = await manager.create_payment(t, tg_id=tg_id, method=method, amount=amount, chat_id=chat_id)
 
             if method == PaymentMethod.TON:
@@ -211,12 +211,23 @@ async def pre_checkout(pre_checkout_query: PreCheckoutQuery):
 @router.message(F.content_type == ContentType.SUCCESSFUL_PAYMENT)
 async def successful_payment(message: Message, t):
     tg_id = message.from_user.id
+
+    if not message.successful_payment:
+        LOG.error(f"Successful payment message without payment data for user {tg_id}")
+        return
+
     payment_id = message.successful_payment.telegram_payment_charge_id
     stars_paid = message.successful_payment.total_amount
+
+    if not payment_id or not stars_paid:
+        LOG.error(f"Invalid payment data for user {tg_id}: payment_id={payment_id}, stars={stars_paid}")
+        await message.answer(t('error_creating_payment'))
+        return
+
     rub_amount = Decimal(stars_paid) * Decimal(str(TELEGRAM_STARS_RATE))
 
     async with get_session() as session:
-        user_repo, _, payment_repo = await get_repositories(session)
+        user_repo, payment_repo = await get_repositories(session)
 
         if await payment_repo.mark_payment_processed_with_lock(payment_id, tg_id, rub_amount):
             await user_repo.change_balance(tg_id, rub_amount)

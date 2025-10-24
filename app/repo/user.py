@@ -32,29 +32,27 @@ class UserRepository(BaseRepository):
     # Balance
     # ----------------------------
     async def get_balance(self, tg_id: int) -> Decimal:
-        redis = await self.get_redis()  # Замена _get_redis на get_redis
+        redis = await self.get_redis()
         cached = await redis.get(f"user:{tg_id}:balance")
         if cached:
             return Decimal(cached)
 
-        async with get_session() as session:
-            result = await session.execute(select(User.balance).filter_by(tg_id=tg_id))
-            balance = result.scalar() or Decimal("0.0")
+        result = await self.session.execute(select(User.balance).filter_by(tg_id=tg_id))
+        balance = result.scalar() or Decimal("0.0")
 
         await redis.setex(f"user:{tg_id}:balance", CACHE_TTL_BALANCE, str(balance))
         return balance
 
     async def change_balance(self, tg_id: int, amount: Decimal) -> Decimal:
-        redis = await self.get_redis()  # Замена _get_redis на get_redis
-        async with get_session() as session:
-            result = await session.execute(
-                update(User)
-                .where(User.tg_id == tg_id)
-                .values(balance=User.balance + amount)
-                .returning(User.balance)
-            )
-            await session.commit()
-            new_balance = result.scalar() or Decimal("0.0")
+        redis = await self.get_redis()
+        result = await self.session.execute(
+            update(User)
+            .where(User.tg_id == tg_id)
+            .values(balance=User.balance + amount)
+            .returning(User.balance)
+        )
+        await self.session.commit()
+        new_balance = result.scalar() or Decimal("0.0")
 
         await redis.setex(f"user:{tg_id}:balance", CACHE_TTL_BALANCE, str(new_balance))
         return new_balance
@@ -68,87 +66,86 @@ class UserRepository(BaseRepository):
         username: str,
         referrer_id: Optional[int] = None
     ) -> bool:
-        redis = await self.get_redis()  # Замена _get_redis на get_redis
+        redis = await self.get_redis()
         now = datetime.utcnow()
-        async with get_session() as session:
-            user = await session.get(User, tg_id)
-            if user:
-                return False
 
-            new_user = User(
-                tg_id=tg_id,
-                username=username,
-                balance=0,
-                configs=0,
-                lang='ru',
-                referrer_id=referrer_id,
-                first_buy=True,
-                created_at=now
+        user = await self.session.get(User, tg_id)
+        if user:
+            return False
+
+        new_user = User(
+            tg_id=tg_id,
+            username=username,
+            balance=0,
+            configs=0,
+            lang='ru',
+            referrer_id=referrer_id,
+            first_buy=True,
+            created_at=now
+        )
+        self.session.add(new_user)
+
+        if referrer_id:
+            await self.session.execute(
+                update(User)
+                .where(User.tg_id == referrer_id)
+                .values(balance=User.balance + REFERRAL_BONUS)
             )
-            session.add(new_user)
+            await redis.delete(f"user:{referrer_id}:balance")
 
-            if referrer_id:
-                await session.execute(
-                    update(User)
-                    .where(User.tg_id == referrer_id)
-                    .values(balance=User.balance + REFERRAL_BONUS)
-                )
-                await redis.delete(f"user:{referrer_id}:balance")
-
-            await session.commit()
+        await self.session.commit()
         return True
 
     # ----------------------------
     # Configs
     # ----------------------------
     async def get_configs(self, tg_id: int) -> List[Dict]:
-        redis = await self.get_redis()  # Замена _get_redis на get_redis
+        redis = await self.get_redis()
         key = f"user:{tg_id}:configs"
         cached = await redis.get(key)
         if cached:
             return json.loads(cached)
 
-        async with get_session() as session:
-            result = await session.execute(
-                select(Config).filter_by(tg_id=tg_id, deleted=False).order_by(Config.id)  # Добавлено deleted=False
-            )
-            configs = [dict(
-                id=c.id,
-                name=c.name,
-                vless_link=c.vless_link,
-                server_id=c.server_id,
-                username=c.username
-            ) for c in result.scalars().all()]
+        result = await self.session.execute(
+            select(Config).filter_by(tg_id=tg_id, deleted=False).order_by(Config.id)
+        )
+        configs = [dict(
+            id=c.id,
+            name=c.name,
+            vless_link=c.vless_link,
+            server_id=c.server_id,
+            username=c.username
+        ) for c in result.scalars().all()]
 
         await redis.setex(key, CACHE_TTL_CONFIGS, json.dumps(configs))
         return configs
 
     async def add_config(self, tg_id: int, vless_link: str, server_id: str, username: str) -> Dict:
-        redis = await self.get_redis()  # Замена _get_redis на get_redis
-        async with get_session() as session:
-            result = await session.execute(
-                select(func.count(Config.id)).filter_by(tg_id=tg_id, deleted=False)  # Добавлено deleted=False
-            )
-            count = result.scalar() or 0
-            new_name = f"Configuration {count + 1}"
+        redis = await self.get_redis()
 
-            cfg = Config(
-                tg_id=tg_id,
-                name=new_name,
-                vless_link=vless_link,
-                server_id=server_id,
-                username=username,
-                deleted=False
-            )
-            session.add(cfg)
+        result = await self.session.execute(
+            select(func.count(Config.id)).filter_by(tg_id=tg_id, deleted=False)
+        )
+        count = result.scalar() or 0
+        new_name = f"Configuration {count + 1}"
 
-            await session.execute(
-                update(User)
-                .where(User.tg_id == tg_id)
-                .values(configs=User.configs + 1)
-            )
+        cfg = Config(
+            tg_id=tg_id,
+            name=new_name,
+            vless_link=vless_link,
+            server_id=server_id,
+            username=username,
+            deleted=False
+        )
+        self.session.add(cfg)
 
-            await session.commit()
+        await self.session.execute(
+            update(User)
+            .where(User.tg_id == tg_id)
+            .values(configs=User.configs + 1)
+        )
+
+        await self.session.commit()
 
         await redis.delete(f"user:{tg_id}:configs")
         return {
@@ -187,98 +184,88 @@ class UserRepository(BaseRepository):
     # Delete config (clean delete)
     # ----------------------------
     async def delete_config(self, cfg_id: int, tg_id: int):
-        redis = await self.get_redis()  # Замена _get_redis на get_redis
+        redis = await self.get_redis()
         username = None
-        server_id = None
 
-        async with get_session() as session:
-            cfg = await session.get(Config, cfg_id)
-            if not cfg or cfg.tg_id != tg_id or cfg.deleted:
-                LOG.debug("delete_config: config not found or already deleted id=%s tg=%s", cfg_id, tg_id)
-                return
+        cfg = await self.session.get(Config, cfg_id)
+        if not cfg or cfg.tg_id != tg_id or cfg.deleted:
+            LOG.debug("delete_config: config not found or already deleted id=%s tg=%s", cfg_id, tg_id)
+            return
 
-            username = cfg.username
-            server_id = cfg.server_id
+        username = cfg.username
 
-            cfg.deleted = True  # Мягкое удаление вместо session.delete
-            await session.execute(
-                update(User)
-                .where(User.tg_id == tg_id)
-                .values(configs=func.greatest(User.configs - 1, 0))
-            )
-            if server_id:
-                await session.execute(
-                    update(Server)
-                    .where(Server.id == server_id)
-                    .values(users_count=func.greatest(Server.users_count - 1, 0))
-                )
-            await session.commit()
+        cfg.deleted = True
+        await self.session.execute(
+            update(User)
+            .where(User.tg_id == tg_id)
+            .values(configs=func.greatest(User.configs - 1, 0))
+        )
+        await self.session.commit()
 
         if username:
             await self._safe_remove_marzban_user(username)
 
         await redis.delete(f"user:{tg_id}:configs")
-        await redis.delete("servers:best")
 
     # ----------------------------
     # Language
     # ----------------------------
     async def get_lang(self, tg_id: int) -> str:
-        redis = await self.get_redis()  # Замена _get_redis на get_redis
+        redis = await self.get_redis()
         key = f"user:{tg_id}:lang"
         cached = await redis.get(key)
         if cached:
             return cached
 
-        async with get_session() as session:
-            user = await session.get(User, tg_id)
-            lang = user.lang if user else "ru"
+        user = await self.session.get(User, tg_id)
+        lang = user.lang if user else "ru"
 
         await redis.setex(key, CACHE_TTL_LANG, lang)
         return lang
 
     async def set_lang(self, tg_id: int, lang: str):
-        redis = await self.get_redis()  # Замена _get_redis на get_redis
+        redis = await self.get_redis()
         await redis.setex(f"user:{tg_id}:lang", CACHE_TTL_LANG, lang)
 
-        async with get_session() as session:
-            await session.execute(update(User).where(User.tg_id == tg_id).values(lang=lang))
-            await session.commit()
+        await self.session.execute(update(User).where(User.tg_id == tg_id).values(lang=lang))
+        await self.session.commit()
 
     # ----------------------------
     # Subscription helpers
     # ----------------------------
     async def get_subscription_end(self, tg_id: int) -> Optional[float]:
-        redis = await self.get_redis()  # Замена _get_redis на get_redis
+        redis = await self.get_redis()
         key = f"user:{tg_id}:sub_end"
         cached = await redis.get(key)
         if cached:
             return float(cached) if cached != 'None' else None
 
-        async with get_session() as session:
-            result = await session.execute(select(User.subscription_end).where(User.tg_id == tg_id))
-            sub_end_dt = result.scalar()
-            sub_end = sub_end_dt.timestamp() if sub_end_dt else None
+        result = await self.session.execute(select(User.subscription_end).where(User.tg_id == tg_id))
+        sub_end_dt = result.scalar()
+        sub_end = sub_end_dt.timestamp() if sub_end_dt else None
 
         await redis.setex(key, CACHE_TTL_SUB_END, str(sub_end) if sub_end else 'None')
         return sub_end
 
     async def set_subscription_end(self, tg_id: int, timestamp: float):
-        redis = await self.get_redis()  # Замена _get_redis на get_redis
+        redis = await self.get_redis()
         expire_dt = datetime.fromtimestamp(timestamp)
 
-        async with get_session() as session:
-            await session.execute(
-                update(User).where(User.tg_id == tg_id).values(subscription_end=expire_dt)
-            )
-            result = await session.execute(select(Config.username).where(Config.tg_id == tg_id, Config.deleted == False))  # Добавлено deleted=False
-            usernames = [r[0] for r in result.all()]
-            await session.commit()
+        await self.session.execute(
+            update(User).where(User.tg_id == tg_id).values(subscription_end=expire_dt)
+        )
+        result = await self.session.execute(select(Config.username).where(Config.tg_id == tg_id, Config.deleted == False))
+        usernames = [r[0] for r in result.all()]
+        await self.session.commit()
 
         await redis.setex(f"user:{tg_id}:sub_end", CACHE_TTL_SUB_END, str(timestamp))
 
-        for username in usernames:
-            await self._safe_modify_marzban_user(username, int(timestamp))
+        if usernames:
+            import asyncio
+            await asyncio.gather(*[
+                self._safe_modify_marzban_user(username, int(timestamp))
+                for username in usernames
+            ], return_exceptions=True)
 
     async def has_active_subscription(self, tg_id: int) -> bool:
         sub_end = await self.get_subscription_end(tg_id)
@@ -287,51 +274,49 @@ class UserRepository(BaseRepository):
         return time.time() < sub_end
 
     async def buy_subscription(self, tg_id: int, days: int, price: float) -> bool:
-        redis = await self.get_redis()  # Замена _get_redis на get_redis
+        redis = await self.get_redis()
         price_decimal = Decimal(str(price))
         now_ts = time.time()
 
-        async with get_session() as session:
-            result = await session.execute(
-                select(User).where(User.tg_id == tg_id).with_for_update()
-            )
-            user = result.scalar_one_or_none()
-            if not user:
-                LOG.warning(f"User {tg_id} not found during subscription purchase")
-                return False
+        result = await self.session.execute(
+            select(User).where(User.tg_id == tg_id).with_for_update()
+        )
+        user = result.scalar_one_or_none()
+        if not user:
+            LOG.warning(f"User {tg_id} not found during subscription purchase")
+            return False
 
-            if user.balance < price_decimal:
-                LOG.info(f"User {tg_id} has insufficient balance: {user.balance} < {price_decimal}")
-                return False
+        if user.balance < price_decimal:
+            LOG.info(f"User {tg_id} has insufficient balance: {user.balance} < {price_decimal}")
+            return False
 
-            new_balance = user.balance - price_decimal
-            user.balance = new_balance
+        new_balance = user.balance - price_decimal
+        user.balance = new_balance
 
-            current_sub_ts = user.subscription_end.timestamp() if user.subscription_end else now_ts
-            new_end_ts = max(current_sub_ts, now_ts) + days * 86400
-            user.subscription_end = datetime.fromtimestamp(new_end_ts)
+        current_sub_ts = user.subscription_end.timestamp() if user.subscription_end else now_ts
+        new_end_ts = max(current_sub_ts, now_ts) + days * 86400
+        user.subscription_end = datetime.fromtimestamp(new_end_ts)
 
-            if user.first_buy:
-                user.first_buy = False
-                if user.referrer_id:
-                    ref_result = await session.execute(
-                        select(User).where(User.tg_id == user.referrer_id)
-                    )
-                    ref_user = ref_result.scalar_one_or_none()
-                    if ref_user:
-                        ref_user.balance += Decimal(str(REFERRAL_BONUS))
-                        await redis.delete(f"user:{user.referrer_id}:balance")
-                        LOG.info(f"Referral bonus {REFERRAL_BONUS} credited to {user.referrer_id} from {tg_id}")
+        if user.first_buy:
+            user.first_buy = False
+            if user.referrer_id:
+                ref_result = await self.session.execute(
+                    select(User).where(User.tg_id == user.referrer_id)
+                )
+                ref_user = ref_result.scalar_one_or_none()
+                if ref_user:
+                    ref_user.balance += Decimal(str(REFERRAL_BONUS))
+                    await redis.delete(f"user:{user.referrer_id}:balance")
+                    LOG.info(f"Referral bonus {REFERRAL_BONUS} credited to {user.referrer_id} from {tg_id}")
 
-            result = await session.execute(select(Config.username).where(Config.tg_id == tg_id, Config.deleted == False))  # Добавлено deleted=False
-            usernames = [r[0] for r in result.all()]
+        result = await self.session.execute(select(Config.username).where(Config.tg_id == tg_id, Config.deleted == False))
+        usernames = [r[0] for r in result.all()]
 
-            await session.commit()
+        await self.session.commit()
 
         await redis.setex(f"user:{tg_id}:sub_end", CACHE_TTL_SUB_END, str(new_end_ts))
         await redis.setex(f"user:{tg_id}:balance", CACHE_TTL_BALANCE, str(new_balance))
 
-        # Parallelize Marzban API calls instead of sequential for better performance
         if usernames:
             import asyncio
             await asyncio.gather(*[
@@ -350,20 +335,7 @@ class UserRepository(BaseRepository):
         tg_id: int,
         manual_instance_id: Optional[str] = None
     ) -> Dict:
-        """
-        Create a new VPN config for the user.
-
-        Args:
-            tg_id: Telegram user ID
-            manual_instance_id: Optional Marzban instance ID for manual selection
-                               (future feature: user chooses server location)
-
-        Returns:
-            Dict with config details (id, name, vless_link, server_id, username)
-
-        Raises:
-            ValueError: If subscription expired, max configs reached, or creation failed
-        """
+        
         redis = await self.get_redis()
         username = f'orbit_{tg_id}'
 
@@ -422,7 +394,7 @@ class UserRepository(BaseRepository):
                 instance, _, _ = await marzban_client.get_best_instance_and_node(manual_instance_id)
                 instance_id = instance.id
             else:
-                LOG.error("Marzban add_user failed for %s: %s", username, type(e).__name__, e)
+                LOG.error("Marzban add_user failed for %s: %s", username, e)
                 raise
 
         # Customize fragment for branding

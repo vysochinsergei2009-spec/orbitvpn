@@ -103,7 +103,13 @@ LOCALES = {
         ),
         'stars_add_title': 'Пополнение баланса',
         'stars_add_description': 'Пополните баланс на {amount} RUB',
-        'how_to_install': 'Инструкция по установке'
+        'how_to_install': 'Инструкция по установке',
+        'stars_invoice_sent': 'Счёт отправлен. Проверьте сообщения',
+        'stars_price_label': 'Пополнение',
+        'config_not_found': 'Конфигурация не найдена',
+        'error_deleting_config': 'Ошибка при удалении конфигурации',
+        'no_servers_or_cache_error': 'Нет доступных серверов. Попробуйте позже',
+        'payment_already_processed': 'Платёж уже обработан'
     },
     "en": {
         "cmd_start": "Welcome to OrbitVPN! Choose an option:",
@@ -209,7 +215,13 @@ LOCALES = {
         ),
         'stars_add_title': 'Add funds to balance',
         'stars_add_description': 'Add {amount} RUB to your balance',
-        'how_to_install': 'How to install'
+        'how_to_install': 'How to install',
+        'stars_invoice_sent': 'Invoice sent. Check your messages',
+        'stars_price_label': 'Top-up',
+        'config_not_found': 'Configuration not found',
+        'error_deleting_config': 'Error deleting configuration',
+        'no_servers_or_cache_error': 'No available servers. Try again later',
+        'payment_already_processed': 'Payment already processed'
     }
 }
 

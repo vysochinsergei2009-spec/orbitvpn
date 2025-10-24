@@ -17,7 +17,7 @@ async def buy_sub_callback(callback: CallbackQuery, t):
     tg_id = callback.from_user.id
 
     async with get_session() as session:
-        user_repo, _, _ = await get_repositories(session)
+        user_repo, _ = await get_repositories(session)
         balance = await get_user_balance(user_repo, tg_id)
 
         sub_text = t("buy_sub_text")
@@ -39,7 +39,7 @@ async def sub_buy_callback(callback: CallbackQuery, t):
     tg_id = callback.from_user.id
 
     async with get_session() as session:
-        user_repo, _, _ = await get_repositories(session)
+        user_repo, _ = await get_repositories(session)
         balance = await user_repo.get_balance(tg_id)
 
         if balance < price:
@@ -78,7 +78,7 @@ async def renew_subscription_callback(callback: CallbackQuery, t):
     tg_id = callback.from_user.id
 
     async with get_session() as session:
-        user_repo, _, _ = await get_repositories(session)
+        user_repo, _ = await get_repositories(session)
         balance = await get_user_balance(user_repo, tg_id)
         sub_end = await user_repo.get_subscription_end(tg_id)
         expire_date = format_expire_date(sub_end)
