@@ -3,55 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OrbitVPN - Secure VPN Access</title>
+    <title>OrbitVPN</title>
     <link rel="stylesheet" href="main.css">
-    <script src="main.js" defer></script>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo">OrbitVPN</div>
-            <div class="nav-menu">
-                <a href="#features">Features</a>
-                <a href="install/ru.html">Install</a>
-                <a href="privacy/ru.html">Privacy</a>
-                <a href="index_en.html">EN</a>
-            </div>
+    <nav class="global-nav">
+        <div class="nav-content">
+            <div class="nav-logo">OrbitVPN</div>
+            <ul class="nav-list">
+                <li><a href="#features">Возможности</a></li>
+                <li><a href="#pricing">Тарифы</a></li>
+                <li><a href="install/ru.html">Установка</a></li>
+                <li><a href="privacy/ru.html">Конфиденциальность</a></li>
+                <li><a href="index_en.html" class="lang-link">EN</a></li>
+            </ul>
         </div>
     </nav>
 
-    <main>
-        <section class="hero">
-            <div class="hero-content">
-                <h1>Secure VPN Access</h1>
-                <p class="hero-subtitle">Fast, private, and reliable connection without limits</p>
-                <a href="https://t.me/your_bot_username" class="cta-button" target="_blank">
-                    <span class="button-text">Get Started</span>
-                </a>
+    <section class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">OrbitVPN</h1>
+            <p class="hero-subtitle">Свобода без границ</p>
+            <div class="hero-links">
+                <a href="https://t.me/your_bot_username" target="_blank">Начать</a>
+                <a href="install/ru.html" class="secondary-link">Узнать больше</a>
             </div>
-            <div class="hero-visual">
-                <div class="glass-orb"></div>
-            </div>
-        </section>
+        </div>
+    </section>
 
-        <section id="features" class="features">
-            <div class="feature-item">
-                <h3>High Speed</h3>
-                <p>Optimized servers for maximum performance</p>
+    <section class="product-section light-bg">
+        <div class="product-content">
+            <h2 class="section-title">Безопасность превыше всего</h2>
+            <p class="section-subtitle">Современное шифрование защищает ваши данные</p>
+            <div class="product-links">
+                <a href="#features">Подробнее</a>
             </div>
-            <div class="feature-item">
-                <h3>Privacy First</h3>
-                <p>Strong encryption protects your data</p>
-            </div>
-            <div class="feature-item">
-                <h3>No Limits</h3>
-                <p>Access any content from anywhere</p>
-            </div>
-        </section>
-    </main>
+        </div>
+    </section>
 
-    <footer class="footer">
-        <p>&copy; 2025 OrbitVPN</p>
+    <section class="product-section dark-bg">
+        <div class="product-content">
+            <h2 class="section-title white-text">Высокая скорость</h2>
+            <p class="section-subtitle white-text">Оптимизированные серверы по всему миру</p>
+            <div class="product-links">
+                <a href="#pricing" class="white-link">Выбрать тариф</a>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🚀</div>
+            <h3>Быстрый старт</h3>
+            <p>Настройка занимает всего 5 минут</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔒</div>
+            <h3>Приватность</h3>
+            <p>Ваши данные защищены и не передаются третьим лицам</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🌍</div>
+            <h3>Без ограничений</h3>
+            <p>Доступ к любому контенту из любой точки мира</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📱</div>
+            <h3>Все устройства</h3>
+            <p>iOS, Android, Windows, macOS, Linux</p>
+        </div>
+    </section>
+
+    <section id="pricing" class="pricing-section">
+        <h2 class="section-header">Выберите свой тариф</h2>
+        <div class="pricing-grid">
+            <div class="price-card">
+                <h3>1 месяц</h3>
+                <p class="price">150₽</p>
+                <ul class="features-list">
+                    <li>Безлимитный трафик</li>
+                    <li>Высокая скорость</li>
+                    <li>До 2 устройств</li>
+                </ul>
+            </div>
+            <div class="price-card featured">
+                <div class="badge">Популярный</div>
+                <h3>3 месяца</h3>
+                <p class="price">400₽</p>
+                <ul class="features-list">
+                    <li>Безлимитный трафик</li>
+                    <li>Высокая скорость</li>
+                    <li>До 2 устройств</li>
+                    <li>Экономия 50₽</li>
+                </ul>
+            </div>
+            <div class="price-card">
+                <h3>12 месяцев</h3>
+                <p class="price">1200₽</p>
+                <ul class="features-list">
+                    <li>Безлимитный трафик</li>
+                    <li>Высокая скорость</li>
+                    <li>До 2 устройств</li>
+                    <li>Экономия 600₽</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <h2>Начните использовать OrbitVPN сегодня</h2>
+        <p>7 дней бесплатного доступа при регистрации</p>
+        <a href="https://t.me/your_bot_username" class="cta-button" target="_blank">Открыть бот</a>
+    </section>
+
+    <footer class="global-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>Продукт</h4>
+                <ul>
+                    <li><a href="#features">Возможности</a></li>
+                    <li><a href="#pricing">Тарифы</a></li>
+                    <li><a href="install/ru.html">Установка</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Поддержка</h4>
+                <ul>
+                    <li><a href="https://t.me/your_support" target="_blank">Техподдержка</a></li>
+                    <li><a href="privacy/ru.html">Конфиденциальность</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 OrbitVPN. Все права защищены.</p>
+        </div>
     </footer>
 </body>
 </html>

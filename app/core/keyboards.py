@@ -70,9 +70,8 @@ def myvpn_kb(
             'callback_data': 'add_config' if has_active_sub else 'buy_sub',
         })
 
-    # Enhanced: Add device type prefix for clarity
     for i, cfg in enumerate(configs, 1):
-        # Use name if available, fallback to numbered display
+
         display_name = cfg.get('name') or f"{t('config')} {i}"
         buttons.append({
             'text': display_name,
@@ -148,6 +147,7 @@ def back_balance(t: Callable[[str], str]) -> InlineKeyboardMarkup:
 
 
 def get_payment_amounts_keyboard(t: Callable[[str], str], method: str) -> InlineKeyboardMarkup:
+    # All methods support custom amounts
     return _build_keyboard([
         {'text': '200 RUB', 'callback_data': f'amount_{method}_200'},
         {'text': '500 RUB', 'callback_data': f'amount_{method}_500'},

@@ -20,12 +20,12 @@ class PaymentManager:
     def __init__(self, session, redis_client=None):
         self.session = session
         self.redis_client = redis_client
+        self.payment_repo = PaymentRepository(session, redis_client)
         self.gateways: dict[PaymentMethod, BasePaymentGateway] = {
             PaymentMethod.TON: TonGateway(session, redis_client),
             PaymentMethod.STARS: TelegramStarsGateway(bot, session, redis_client),
             PaymentMethod.CRYPTOBOT: CryptoBotGateway(session, redis_client),
         }
-        self.payment_repo = PaymentRepository(session, redis_client)
         self.user_repo = UserRepository(session, redis_client)
         self.polling_task: Optional[asyncio.Task] = None
 

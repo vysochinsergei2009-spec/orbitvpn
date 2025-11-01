@@ -1,0 +1,3 @@
+- Add YooKassa payment method
+- Improve Bot_Manager program and fix bugs in it
+- Completely change the website

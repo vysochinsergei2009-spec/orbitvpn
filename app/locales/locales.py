@@ -131,7 +131,7 @@ LOCALES = {
         'continue_payment': 'Продолжить',
         'create_new_payment': 'Создать новый',
         'payment_sent': 'Отправил оплату',
-        'payment_checking': 'Проверяем платёж...\n\nБаланс будет зачислен автоматически после подтверждения транзакции в блокчейне.\n\nОбычно это занимает 1-2 минуты.'
+        'payment_checking': 'Проверяем платёж...\n\nБаланс будет зачислен автоматически после подтверждения транзакции в блокчейне.\n\nОбычно это занимает 1-2 минуты.',
     },
     "en": {
         "cmd_start": "Welcome to OrbitVPN! Choose an option:",
@@ -265,7 +265,7 @@ LOCALES = {
         'continue_payment': 'Continue',
         'create_new_payment': 'Create new',
         'payment_sent': 'Payment sent',
-        'payment_checking': 'Checking payment...\n\nBalance will be credited automatically after blockchain confirmation.\n\nUsually takes 1-2 minutes.'
+        'payment_checking': 'Checking payment...\n\nBalance will be credited automatically after blockchain confirmation.\n\nUsually takes 1-2 minutes.',
     }
 }
 

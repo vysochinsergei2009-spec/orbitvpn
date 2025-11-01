@@ -64,10 +64,6 @@ class Referral(Base):
     note = Column(Text)
 
 class MarzbanInstance(Base):
-    """
-    Represents a Marzban panel instance that manages multiple nodes.
-    Each instance can have multiple nodes which are managed internally by Marzban.
-    """
     __tablename__ = "marzban_instances"
     id = Column(String, primary_key=True)  # e.g., "s001", "s002"
     name = Column(String)  # Friendly name

@@ -86,7 +86,9 @@ async def process_amount_selection(callback: CallbackQuery, t, state: FSMContext
     # Validate preset amount
     try:
         amount = Decimal(amount_str)
-        if amount <= 0 or amount < 200 or amount > 100000:
+        # Minimum amount is 200 RUB
+        min_amount = 200
+        if amount <= 0 or amount < min_amount or amount > 100000:
             raise ValueError("Invalid preset amount")
     except (ValueError, TypeError) as e:
         LOG.error(f"Invalid preset amount: {amount_str} - {e}")
