@@ -1,9 +1,18 @@
+"""Admin panel handlers - main sections"""
+
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
-from app.core.keyboards import admin_panel_kb
+from app.admin.keyboards import admin_panel_kb
 from config import ADMIN_TG_ID
-from .utils import safe_answer_callback
+
+
+async def safe_answer_callback(callback: CallbackQuery):
+    """Safely answer callback query to prevent telegram errors"""
+    try:
+        await callback.answer()
+    except Exception:
+        pass
 
 router = Router()
 
@@ -78,43 +87,5 @@ async def admin_payments(callback: CallbackQuery, t):
 
     await callback.message.edit_text(
         payments_text,
-        reply_markup=admin_panel_kb(t)
-    )
-
-
-@router.callback_query(F.data == 'admin_servers')
-async def admin_servers(callback: CallbackQuery, t):
-    """Show server status"""
-    await safe_answer_callback(callback)
-    tg_id = callback.from_user.id
-
-    if tg_id != ADMIN_TG_ID:
-        await callback.answer(t('access_denied'), show_alert=True)
-        return
-
-    # TODO: Implement server status
-    servers_text = t('admin_servers_placeholder')
-
-    await callback.message.edit_text(
-        servers_text,
-        reply_markup=admin_panel_kb(t)
-    )
-
-
-@router.callback_query(F.data == 'admin_broadcast')
-async def admin_broadcast(callback: CallbackQuery, t):
-    """Broadcast message to all users"""
-    await safe_answer_callback(callback)
-    tg_id = callback.from_user.id
-
-    if tg_id != ADMIN_TG_ID:
-        await callback.answer(t('access_denied'), show_alert=True)
-        return
-
-    # TODO: Implement broadcast functionality
-    broadcast_text = t('admin_broadcast_placeholder')
-
-    await callback.message.edit_text(
-        broadcast_text,
         reply_markup=admin_panel_kb(t)
     )

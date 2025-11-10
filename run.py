@@ -6,6 +6,8 @@ from app.utils.redis import init_cache, close_cache
 from app.utils.rate_limit import RateLimitMiddleware, cleanup_rate_limit
 from app.utils.logging import get_logger, setup_aiogram_logger
 from app.utils.payment_cleanup import PaymentCleanupTask
+from app.utils.notifications import SubscriptionNotificationTask
+from app.utils.config_cleanup import ConfigCleanupTask
 from app.repo.db import close_db
 from app.repo.init_db import init_database
 from config import bot
@@ -41,23 +43,29 @@ async def main():
     dp.message.middleware(limiter)
     dp.callback_query.middleware(limiter)
 
-    # Start background cleanup tasks
     rate_limit_cleanup_task = asyncio.create_task(
         cleanup_rate_limit(limiter, interval=3600, max_age=3600)
     )
 
-    # Start payment cleanup task (checks every 5 minutes, deletes after 7 days)
     payment_cleanup = PaymentCleanupTask(check_interval_seconds=300, cleanup_days=7)
     payment_cleanup.start()
+
+    subscription_notifications = SubscriptionNotificationTask(bot, check_interval_seconds=3600 * 3)
+    subscription_notifications.start()
+
+    # Start config cleanup task (runs once per week, removes configs expired >14 days)
+    config_cleanup = ConfigCleanupTask(check_interval_seconds=86400 * 7, days_threshold=14)
+    config_cleanup.start()
 
     LOG.info("Bot started...")
 
     try:
         await dp.start_polling(bot)
     finally:
-        # Stop cleanup tasks
         rate_limit_cleanup_task.cancel()
         payment_cleanup.stop()
+        subscription_notifications.stop()
+        config_cleanup.stop()
 
         try:
             await rate_limit_cleanup_task

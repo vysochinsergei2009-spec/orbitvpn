@@ -59,6 +59,7 @@ def balance_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
 def set_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
     return _build_keyboard([
         {'text': t('referral'), 'callback_data': 'referral'},
+        {'text': t('notifications'), 'callback_data': 'notifications_settings'},
         {'text': t('change_language'), 'callback_data': 'change_lang'},
         {'text': t('back_main'), 'callback_data': 'back_main'},
     ])
@@ -108,6 +109,13 @@ def get_language_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarkup:
     return _build_keyboard([
         {'text': '🇺🇸 English', 'callback_data': 'set_lang:en'},
         {'text': '🇷🇺 Русский', 'callback_data': 'set_lang:ru'},
+        {'text': t('back'), 'callback_data': 'settings'},
+    ])
+
+
+def get_notifications_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarkup:
+    return _build_keyboard([
+        {'text': t('toggle_notifications'), 'callback_data': 'toggle_notifications'},
         {'text': t('back'), 'callback_data': 'settings'},
     ])
 
@@ -177,15 +185,3 @@ def payment_success_actions(t: Callable[[str], str], has_active_sub: bool) -> In
             {'text': t('buy_sub'), 'callback_data': 'buy_sub'},
             {'text': t('back_main'), 'callback_data': 'back_main'},
         ])
-
-
-def admin_panel_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    """Admin panel keyboard with various management options"""
-    return _build_keyboard([
-        {'text': t('admin_stats'), 'callback_data': 'admin_stats'},
-        {'text': t('admin_users'), 'callback_data': 'admin_users'},
-        {'text': t('admin_payments'), 'callback_data': 'admin_payments'},
-        {'text': t('admin_servers'), 'callback_data': 'admin_servers'},
-        {'text': t('admin_broadcast'), 'callback_data': 'admin_broadcast'},
-        {'text': t('back_main'), 'callback_data': 'back_main'},
-    ], adjust=[2, 2, 1, 1])
