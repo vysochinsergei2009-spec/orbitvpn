@@ -95,3 +95,60 @@ def broadcast_confirm_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
         {'text': t('broadcast_execute'), 'callback_data': 'broadcast_execute'},
         {'text': t('cancel'), 'callback_data': 'broadcast_cancel'},
     ], adjust=[1, 1])
+
+
+def admin_users_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
+    """User management keyboard"""
+    return _build_keyboard([
+        {'text': t('admin_search_user'), 'callback_data': 'admin_search_user'},
+        {'text': t('admin_user_list'), 'callback_data': 'admin_user_list'},
+        {'text': t('back'), 'callback_data': 'admin_panel'},
+    ], adjust=[2, 1])
+
+
+def admin_user_detail_kb(t: Callable[[str], str], user_id: int) -> InlineKeyboardMarkup:
+    """User detail management keyboard"""
+    return _build_keyboard([
+        {'text': t('admin_grant_sub'), 'callback_data': f'admin_grant_sub:{user_id}'},
+        {'text': t('admin_revoke_sub'), 'callback_data': f'admin_revoke_sub:{user_id}'},
+        {'text': t('admin_add_balance'), 'callback_data': f'admin_add_balance:{user_id}'},
+        {'text': t('admin_view_configs'), 'callback_data': f'admin_view_configs:{user_id}'},
+        {'text': t('admin_search_user'), 'callback_data': 'admin_search_user'},
+        {'text': t('back'), 'callback_data': 'admin_users'},
+    ], adjust=[2, 2, 1, 1])
+
+
+def admin_user_list_kb(t: Callable[[str], str], page: int, total_pages: int) -> InlineKeyboardMarkup:
+    """User list pagination keyboard"""
+    buttons = []
+
+    # Navigation buttons
+    if page > 0:
+        buttons.append({'text': t('admin_prev_page'), 'callback_data': f'admin_user_list_page:{page-1}'})
+    if page < total_pages - 1:
+        buttons.append({'text': t('admin_next_page'), 'callback_data': f'admin_user_list_page:{page+1}'})
+
+    # Add back button
+    buttons.append({'text': t('back'), 'callback_data': 'admin_users'})
+
+    # Adjust layout: navigation buttons in one row, back button in another
+    if len(buttons) == 3:
+        return _build_keyboard(buttons, adjust=[2, 1])
+    else:
+        return _build_keyboard(buttons, adjust=[1, 1])
+
+
+def admin_payments_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
+    """Payments statistics keyboard"""
+    return _build_keyboard([
+        {'text': t('admin_recent_payments'), 'callback_data': 'admin_recent_payments'},
+        {'text': t('back'), 'callback_data': 'admin_panel'},
+    ])
+
+
+def admin_instance_detail_kb(t: Callable[[str], str], instance_id: str) -> InlineKeyboardMarkup:
+    """Instance detail keyboard"""
+    return _build_keyboard([
+        {'text': t('admin_view_nodes'), 'callback_data': f'admin_view_nodes:{instance_id}'},
+        {'text': t('back'), 'callback_data': 'admin_servers'},
+    ])

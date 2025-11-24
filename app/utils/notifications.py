@@ -10,7 +10,7 @@ from app.repo.db import get_session
 from app.repo.models import User
 from app.utils.redis import get_redis
 from app.locales.locales import get_translator
-from app.core.keyboards import sub_kb
+from app.core.keyboards import balance_button_kb
 
 LOG = logging.getLogger(__name__)
 
@@ -22,8 +22,10 @@ class SubscriptionNotificationTask:
     Runs every 3 hours and sends:
     - 3-day warning when subscription expires in <= 3 days
     - 1-day warning when subscription expires in <= 1 day
+    - Expired notification when subscription expired within last 24 hours
 
     Uses Redis to track sent notifications and avoid spam.
+    All notifications include a Balance button to encourage renewal.
     """
 
     def __init__(self, bot: Bot, check_interval_seconds: int = 3600 * 3):
@@ -37,13 +39,13 @@ class SubscriptionNotificationTask:
         self.task: asyncio.Task = None
         self._running = False
 
-    def _get_random_message(self, lang: str, days: int) -> str:
+    def _get_random_message(self, lang: str, days: int | str) -> str:
         """
         Get random notification message variant.
 
         Args:
             lang: User language ('ru' or 'en')
-            days: Days until expiry (3 or 1)
+            days: Days until expiry (3, 1) or 'expired'
 
         Returns:
             Random message text
@@ -62,19 +64,25 @@ class SubscriptionNotificationTask:
                 t('sub_expiry_1day_2'),
                 t('sub_expiry_1day_3'),
             ]
+        elif days == 'expired':
+            variants = [
+                t('sub_expired_1'),
+                t('sub_expired_2'),
+                t('sub_expired_3'),
+            ]
         else:
             return ""
 
         return random.choice(variants)
 
-    async def _send_notification(self, tg_id: int, lang: str, days: int) -> bool:
+    async def _send_notification(self, tg_id: int, lang: str, days: int | str) -> bool:
         """
         Send subscription expiry notification to user.
 
         Args:
             tg_id: Telegram user ID
             lang: User language
-            days: Days until expiry (3 or 1)
+            days: Days until expiry (3, 1) or 'expired'
 
         Returns:
             True if sent successfully, False otherwise
@@ -85,7 +93,7 @@ class SubscriptionNotificationTask:
                 return False
 
             t = get_translator(lang)
-            keyboard = sub_kb(t, is_extension=True)
+            keyboard = balance_button_kb(t)
 
             await self.bot.send_message(
                 chat_id=tg_id,
@@ -126,27 +134,27 @@ class SubscriptionNotificationTask:
         time_left = user.subscription_end - now
         days_left = time_left.total_seconds() / 86400
 
-        # Skip if subscription already expired
-        if days_left <= 0:
-            return
-
-        # Skip if too far in the future (more than 3 days)
-        if days_left > 3:
-            return
-
         # Format subscription end date for Redis key
         sub_end_date = user.subscription_end.strftime('%Y%m%d')
 
-        # Determine notification type
-        if days_left <= 1:
+        # Determine notification type based on days left
+        if -1 <= days_left <= 0:
+            # Subscription expired within last 24 hours
+            notification_type = 'expired'
+            days = 'expired'
+            ttl = 86400 * 7  # 7 days TTL
+        elif 0 < days_left <= 1:
+            # 1 day warning
             notification_type = '1d'
             days = 1
             ttl = 86400 * 2  # 2 days TTL
-        elif days_left <= 3:
+        elif 1 < days_left <= 3:
+            # 3 day warning
             notification_type = '3d'
             days = 3
             ttl = 86400 * 4  # 4 days TTL
         else:
+            # Too far in future or expired too long ago
             return
 
         # Check if already sent
@@ -176,20 +184,21 @@ class SubscriptionNotificationTask:
             redis = await get_redis()
 
             async with get_session() as session:
-                # Get all users with active or soon-to-expire subscriptions
+                # Get all users with subscriptions expiring soon or recently expired
                 now = datetime.utcnow()
-                threshold = now + timedelta(days=3)
+                future_threshold = now + timedelta(days=3)  # Check up to 3 days in future
+                past_threshold = now - timedelta(days=1)  # Check up to 1 day in past
 
                 result = await session.execute(
                     select(User).where(
                         User.subscription_end.isnot(None),
-                        User.subscription_end > now,
-                        User.subscription_end <= threshold
+                        User.subscription_end >= past_threshold,  # Include recently expired
+                        User.subscription_end <= future_threshold  # Include soon to expire
                     )
                 )
                 users = result.scalars().all()
 
-                LOG.info(f"Checking {len(users)} users for expiring subscriptions")
+                LOG.info(f"Checking {len(users)} users for expiring/expired subscriptions")
 
                 # Check each user
                 for user in users:

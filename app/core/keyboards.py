@@ -56,6 +56,13 @@ def balance_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
     ])
 
 
+def balance_button_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
+    """Single balance button for notifications"""
+    return _build_keyboard([
+        {'text': t('balance'), 'callback_data': 'balance'},
+    ])
+
+
 def set_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
     return _build_keyboard([
         {'text': t('referral'), 'callback_data': 'referral'},
