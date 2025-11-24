@@ -2,7 +2,7 @@
 
 from aiogram import Router
 
-from . import panel, servers, broadcast
+from . import panel, servers, broadcast, users, payments
 
 
 def get_router() -> Router:
@@ -10,6 +10,8 @@ def get_router() -> Router:
     admin_router = Router()
 
     admin_router.include_router(panel.router)
+    admin_router.include_router(users.router)
+    admin_router.include_router(payments.router)
     admin_router.include_router(servers.router)
     admin_router.include_router(broadcast.router)
 
