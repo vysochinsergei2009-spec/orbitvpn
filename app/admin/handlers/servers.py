@@ -107,7 +107,7 @@ async def admin_clear_configs_execute(callback: CallbackQuery, t):
     await callback.message.edit_text(t('admin_cleanup_started'))
 
     # Run cleanup
-    stats = await cleanup_expired_configs(days_threshold=14)
+    stats = await cleanup_expired_configs(days_threshold=3)
 
     # Show results
     result_text = t('admin_cleanup_result',
