@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from decimal import Decimal
 from typing import Optional
 from aiogram import Bot
@@ -24,7 +25,7 @@ class YooKassaGateway(BasePaymentGateway):
         self._configured = False
         self.bot = bot
 
-    def _ensure_configured(self):
+    async def _ensure_configured(self):
         """Configure YooKassa SDK with credentials based on test/production mode"""
         if not self._configured:
             # Select credentials based on testnet mode
@@ -49,7 +50,8 @@ class YooKassaGateway(BasePaymentGateway):
                         "when YOOKASSA_TESTNET=false"
                     )
 
-            Configuration.configure(shop_id, secret_key)
+            await asyncio.to_thread(Configuration.configure, shop_id, secret_key)
+            Configuration.timeout = 15  # Set timeout to 15 seconds
             self._configured = True
             LOG.info(f"YooKassa configured successfully in {mode} mode (shop_id: {shop_id})")
 
@@ -67,7 +69,7 @@ class YooKassaGateway(BasePaymentGateway):
             raise ValueError("payment_id is required for YooKassa")
 
         try:
-            self._ensure_configured()
+            await self._ensure_configured()
 
             # Get bot username for return URL
             from config import bot
@@ -111,7 +113,7 @@ class YooKassaGateway(BasePaymentGateway):
                 }
             }
 
-            yookassa_payment = YooKassaPayment.create(payment_data)
+            yookassa_payment = await asyncio.to_thread(YooKassaPayment.create, payment_data)
 
             # Store YooKassa payment ID in metadata
             await self.payment_repo.update_payment_metadata(
@@ -179,10 +181,10 @@ class YooKassaGateway(BasePaymentGateway):
                 LOG.debug(f"YooKassa payment {payment_id} has no yookassa_payment_id")
                 return False
 
-            self._ensure_configured()
+            await self._ensure_configured()
 
             # Get payment status from YooKassa
-            yookassa_payment = YooKassaPayment.find_one(yookassa_payment_id)
+            yookassa_payment = await asyncio.to_thread(YooKassaPayment.find_one, yookassa_payment_id)
 
             if not yookassa_payment:
                 LOG.warning(f"YooKassa payment {yookassa_payment_id} not found")
