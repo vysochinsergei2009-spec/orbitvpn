@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import uuid
 from decimal import Decimal
 from typing import Optional
 from aiogram import Bot
@@ -51,7 +52,7 @@ class YooKassaGateway(BasePaymentGateway):
                     )
 
             await asyncio.to_thread(Configuration.configure, shop_id, secret_key)
-            Configuration.timeout = 15  # Set timeout to 15 seconds
+            Configuration.timeout = 15
             self._configured = True
             LOG.info(f"YooKassa configured successfully in {mode} mode (shop_id: {shop_id})")
 
@@ -95,7 +96,7 @@ class YooKassaGateway(BasePaymentGateway):
                 },
                 "receipt": {
                     "customer": {
-                        "email": f"user{tg_id}@orbitvpn.com"  # Dummy email for receipt
+                        "email": f"user{tg_id}@orbitvpn.com"
                     },
                     "items": [
                         {
@@ -105,7 +106,7 @@ class YooKassaGateway(BasePaymentGateway):
                                 "value": str(amount),
                                 "currency": "RUB"
                             },
-                            "vat_code": 1,  # VAT 0% (no tax for digital services)
+                            "vat_code": 1,
                             "payment_mode": "full_payment",
                             "payment_subject": "service"
                         }
@@ -113,16 +114,25 @@ class YooKassaGateway(BasePaymentGateway):
                 }
             }
 
+            LOG.info(f"Creating YooKassa payment for user {tg_id}, amount={amount}")
             yookassa_payment = await asyncio.to_thread(YooKassaPayment.create, payment_data)
+
+            # Validate response
+            if not yookassa_payment or not yookassa_payment.id:
+                raise ValueError("YooKassa returned invalid payment response")
+
+            if not hasattr(yookassa_payment, 'confirmation') or not yookassa_payment.confirmation:
+                raise ValueError("YooKassa payment missing confirmation")
+
+            confirmation_url = yookassa_payment.confirmation.confirmation_url
+            if not confirmation_url:
+                raise ValueError("YooKassa payment missing confirmation URL")
 
             # Store YooKassa payment ID in metadata
             await self.payment_repo.update_payment_metadata(
                 payment_id=payment_id,
                 metadata={'yookassa_payment_id': yookassa_payment.id}
             )
-
-            # Get confirmation URL
-            confirmation_url = yookassa_payment.confirmation.confirmation_url
 
             text = (
                 t("yookassa_payment_intro") + "\n\n"
@@ -131,8 +141,9 @@ class YooKassaGateway(BasePaymentGateway):
             )
 
             mode = "TESTNET" if YOOKASSA_TESTNET else "PRODUCTION"
-            LOG.info(f"YooKassa payment created: payment_id={payment_id}, "
-                    f"yookassa_id={yookassa_payment.id}, amount={amount}, mode={mode}")
+            LOG.info(f"YooKassa payment created successfully: payment_id={payment_id}, "
+                    f"yookassa_id={yookassa_payment.id}, amount={amount}, "
+                    f"url={confirmation_url}, mode={mode}")
 
             return PaymentResult(
                 payment_id=payment_id,
@@ -143,16 +154,11 @@ class YooKassaGateway(BasePaymentGateway):
             )
 
         except Exception as e:
-            LOG.error(f"Error creating YooKassa payment: {e}")
+            LOG.error(f"Error creating YooKassa payment: {type(e).__name__}: {e}", exc_info=True)
             raise ValueError(f"Failed to create YooKassa payment: {e}")
 
     async def check_payment(self, payment_id: int) -> bool:
-        """
-        Check if YooKassa payment has been paid.
-
-        Uses database locks to prevent concurrent confirmations
-        of the same payment from polling loop.
-        """
+        """Check if YooKassa payment has been paid"""
         try:
             from app.repo.models import Payment as PaymentModel, User
             from sqlalchemy import select
@@ -162,14 +168,11 @@ class YooKassaGateway(BasePaymentGateway):
                 LOG.warning(f"Payment {payment_id} not found")
                 return False
 
-            # CRITICAL FIX: Allow confirming expired payments if succeeded on YooKassa side
-            # This prevents loss of user funds when payment expires locally but succeeds on gateway
             current_status = payment.get('status')
             if current_status == 'confirmed':
                 LOG.debug(f"YooKassa payment {payment_id} already confirmed")
                 return False
 
-            # Allow processing for 'pending' and 'expired' statuses
             if current_status not in ['pending', 'expired']:
                 LOG.debug(f"YooKassa payment {payment_id} has status {current_status}, cannot process")
                 return False
@@ -192,7 +195,6 @@ class YooKassaGateway(BasePaymentGateway):
 
             # Check if payment is succeeded
             if yookassa_payment.status == 'succeeded':
-                # CRITICAL FIX: Lock payment AND user rows for atomic update
                 result = await self.session.execute(
                     select(PaymentModel)
                     .where(PaymentModel.id == payment_id)
@@ -204,16 +206,13 @@ class YooKassaGateway(BasePaymentGateway):
                     LOG.debug(f"Payment {payment_id} not found during lock")
                     return False
 
-                # Allow confirming if status is pending OR expired (but succeeded on gateway side)
                 if payment_locked.status not in ['pending', 'expired']:
                     LOG.debug(f"Payment {payment_id} has status {payment_locked.status}, cannot confirm")
                     return False
 
-                # Log if recovering expired payment
                 if payment_locked.status == 'expired':
-                    LOG.warning(f"Recovering expired payment {payment_id} - user paid after local timeout but succeeded on YooKassa")
+                    LOG.warning(f"Recovering expired payment {payment_id}")
 
-                # Lock user row for atomic balance update
                 result = await self.session.execute(
                     select(User)
                     .where(User.tg_id == payment_locked.tg_id)
@@ -224,12 +223,10 @@ class YooKassaGateway(BasePaymentGateway):
                     LOG.error(f"User {payment_locked.tg_id} not found for payment {payment_id}")
                     return False
 
-                # Check if tx_hash already set
                 if payment_locked.tx_hash is not None:
                     LOG.warning(f"Payment {payment_id} already has tx_hash: {payment_locked.tx_hash}")
                     return False
 
-                # ATOMIC UPDATE: Update payment status and balance
                 from datetime import datetime
 
                 old_balance = user.balance
@@ -238,27 +235,23 @@ class YooKassaGateway(BasePaymentGateway):
                 payment_locked.status = 'confirmed'
                 payment_locked.tx_hash = tx_hash
                 payment_locked.confirmed_at = datetime.utcnow()
-
-                # Credit payment amount
                 user.balance += payment_locked.amount
 
                 await self.session.commit()
 
                 LOG.info(f"YooKassa payment confirmed: payment_id={payment_id}, user={user.tg_id}, "
-                        f"amount={payment_locked.amount}, balance: {old_balance} → {user.balance}, "
-                        f"yookassa_id={yookassa_payment_id}")
+                        f"amount={payment_locked.amount}, balance: {old_balance} → {user.balance}")
 
-                # Check subscription status BEFORE cache invalidation
                 has_active_sub = user.subscription_end and user.subscription_end > datetime.utcnow()
 
-                # Invalidate cache (tolerate Redis failures)
+                # Invalidate cache
                 try:
                     redis = await self.payment_repo.get_redis()
                     await redis.delete(f"user:{user.tg_id}:balance")
                 except Exception as e:
                     LOG.warning(f"Redis error invalidating cache for user {user.tg_id}: {e}")
 
-                # Send notification to user about successful payment
+                # Send notification
                 await self.on_payment_confirmed(
                     payment_id=payment_id,
                     tx_hash=tx_hash,
@@ -275,6 +268,44 @@ class YooKassaGateway(BasePaymentGateway):
             LOG.error(f"Error checking YooKassa payment {payment_id}: {e}")
             return False
 
+    async def cancel_payment(self, payment_id: int) -> bool:
+        try:
+            payment = await self.payment_repo.get_payment(payment_id)
+            if not payment or payment.get('status') != 'pending':
+                LOG.warning(f"Payment {payment_id} not found or not pending")
+                return False
+
+            extra_data = payment.get('extra_data')
+            if not extra_data or not isinstance(extra_data, dict):
+                LOG.warning(f"Payment {payment_id} has no valid extra_data")
+                return True
+
+            yookassa_payment_id = extra_data.get('yookassa_payment_id')
+
+            if not yookassa_payment_id:
+                LOG.warning(f"Payment {payment_id} has no yookassa_payment_id, skipping remote cancel")
+                return True
+
+            await self._ensure_configured()
+            idempotency_key = uuid.uuid4()
+
+            LOG.info(f"Cancelling YooKassa payment {yookassa_payment_id}")
+
+            cancelled_payment = await asyncio.to_thread(
+                YooKassaPayment.cancel, yookassa_payment_id, idempotency_key
+            )
+
+            if getattr(cancelled_payment, 'status', None) == 'canceled':
+                LOG.info(f"Successfully cancelled YooKassa payment {yookassa_payment_id}")
+                return True
+            else:
+                LOG.warning(f"Could not cancel YooKassa payment {yookassa_payment_id}")
+                return False
+
+        except Exception as e:
+            LOG.error(f"Error cancelling YooKassa payment {payment_id}: {e}", exc_info=True)
+            return False
+
     async def on_payment_confirmed(
         self,
         payment_id: int,
@@ -284,17 +315,10 @@ class YooKassaGateway(BasePaymentGateway):
         lang: str = "ru",
         has_active_subscription: bool = False
     ):
-        """
-        Callback when payment is confirmed.
-
-        Sends Telegram notification to user about successful payment.
-        """
-        LOG.info(f"YooKassa payment confirmed callback: id={payment_id}, tx={tx_hash}")
-
-        # Send notification if bot is available and we have user info
+        """Send payment confirmation notification"""
+        LOG.info(f"YooKassa payment confirmed: id={payment_id}, tx={tx_hash}")
         if self.bot and tg_id and total_amount:
             from app.utils.payment_notifications import send_payment_notification
-
             try:
                 await send_payment_notification(
                     bot=self.bot,
@@ -305,4 +329,3 @@ class YooKassaGateway(BasePaymentGateway):
                 )
             except Exception as e:
                 LOG.error(f"Error sending payment notification to {tg_id}: {e}")
-                # Don't fail payment confirmation if notification fails

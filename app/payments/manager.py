@@ -38,46 +38,30 @@ class PaymentManager:
         method: PaymentMethod,
         amount: Decimal,
         chat_id: Optional[int] = None,
-        force_new: bool = False,
     ) -> PaymentResult:
         try:
             from app.repo.models import User
             from sqlalchemy import select
 
             # CRITICAL FIX: Lock user row BEFORE checking for active payments
-            # This prevents race condition where two concurrent requests both pass
-            # the check and create duplicate payments
             result = await self.session.execute(
                 select(User)
                 .where(User.tg_id == tg_id)
-                .with_for_update()  # Serialize payment creation per user
+                .with_for_update()
             )
             user = result.scalar_one_or_none()
             if not user:
                 raise ValueError(f"User {tg_id} not found")
 
-            # Check for active pending payments unless force_new=True
-            if not force_new:
-                active_payments = await self.payment_repo.get_active_pending_payments(tg_id)
-                if active_payments:
-                    # Return existing active payment instead of raising an exception.
-                    # Prefer returning a payment result with a confirmation URL if available.
-                    active = active_payments[0]
-                    extra = active.get('extra_data') or {}
-                    # try common keys where gateways store URLs/ids
-                    pay_url = extra.get('yookassa_payment_url') or extra.get('pay_url') or active.get('pay_url')
+            # FIXED: Automatically cancel any existing pending payments for the user
+            active_payments = await self.payment_repo.get_active_pending_payments(tg_id)
+            if active_payments:
+                LOG.info(f"User {tg_id} has {len(active_payments)} active payment(s). Auto-canceling...")
+                for payment in active_payments:
                     try:
-                        amt = Decimal(active['amount'])
-                    except Exception:
-                        amt = Decimal(str(active.get('amount', amount)))
-                    text = t("yookassa_existing_payment") if callable(t) else "Active payment exists"
-                    return PaymentResult(
-                        payment_id=active['id'],
-                        method=PaymentMethod(active['method']),
-                        amount=amt,
-                        text=text,
-                        pay_url=pay_url
-                    )
+                        await self.cancel_payment(payment['id'])
+                    except Exception as e:
+                        LOG.error(f"Failed to cancel payment {payment['id']}: {e}")
 
             currency = "RUB"
             comment = None
@@ -115,6 +99,32 @@ class PaymentManager:
         except Exception as e:
             LOG.error(f"Create payment error for user {tg_id}: {type(e).__name__}: {e}")
             raise
+
+    async def cancel_payment(self, payment_id: int):
+        """
+        Cancels a payment both remotely (via gateway) and locally.
+        """
+        payment = await self.payment_repo.get_payment(payment_id)
+        if not payment or payment['status'] != 'pending':
+            LOG.warning(f"Attempted to cancel payment {payment_id} which is not pending.")
+            return
+
+        LOG.info(f"Cancelling payment {payment_id} for user {payment['tg_id']}.")
+        
+        try:
+            method = PaymentMethod(payment['method'])
+            gateway = self.gateways.get(method)
+            
+            # Check if gateway supports remote cancellation
+            if gateway and hasattr(gateway, 'cancel_payment'):
+                await gateway.cancel_payment(payment_id)
+            
+        except Exception as e:
+            LOG.error(f"Remote cancellation for payment {payment_id} failed: {e}", exc_info=True)
+            # Continue to cancel locally regardless of remote failure
+
+        await self.payment_repo.update_payment_status(payment_id, 'cancelled')
+        LOG.info(f"Locally cancelled payment {payment_id}.")
 
     async def confirm_payment(self, payment_id: int, tg_id: int, amount: Decimal, tx_hash: Optional[str] = None):
         try:
