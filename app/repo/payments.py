@@ -1,6 +1,8 @@
 from decimal import Decimal
 from typing import Optional, List, Dict, Union
 from datetime import datetime, timedelta
+import asyncio
+
 
 from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -185,8 +187,9 @@ class PaymentRepository(BaseRepository):
                     # Check if payment is succeeded in YooKassa
                     try:
                         from yookassa import Payment as YooKassaPayment
-                        yookassa_payment = YooKassaPayment.find_one(yookassa_payment_id)
-                        if yookassa_payment and yookassa_payment.status == 'succeeded':
+                        # run blocking network call in thread to avoid blocking event loop
+                        yookassa_payment = await asyncio.to_thread(YooKassaPayment.find_one, yookassa_payment_id)
+                        if yookassa_payment and getattr(yookassa_payment, "status", None) == 'succeeded':
                             LOG.warning(f"Cannot cancel payment {payment_id}: already succeeded in YooKassa")
                             return False
                     except Exception as e:

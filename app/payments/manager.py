@@ -60,24 +60,24 @@ class PaymentManager:
             if not force_new:
                 active_payments = await self.payment_repo.get_active_pending_payments(tg_id)
                 if active_payments:
-                    # If there's an active payment, raise exception with payment details
+                    # Return existing active payment instead of raising an exception.
+                    # Prefer returning a payment result with a confirmation URL if available.
                     active = active_payments[0]
-                    raise ValueError(f"active_payment:{active['id']}:{active['amount']}:{active['method']}")
-            else:
-                # If force_new is True, cancel all other pending payments for this user
-                active_payments = await self.payment_repo.get_active_pending_payments(tg_id)
-                if active_payments:
-                    from app.repo.models import Payment
-                    from sqlalchemy import update
-
-                    payment_ids = [p['id'] for p in active_payments]
-                    await self.session.execute(
-                        update(Payment)
-                        .where(Payment.id.in_(payment_ids))
-                        .values(status='cancelled')
+                    extra = active.get('extra_data') or {}
+                    # try common keys where gateways store URLs/ids
+                    pay_url = extra.get('yookassa_payment_url') or extra.get('pay_url') or active.get('pay_url')
+                    try:
+                        amt = Decimal(active['amount'])
+                    except Exception:
+                        amt = Decimal(str(active.get('amount', amount)))
+                    text = t("yookassa_existing_payment") if callable(t) else "Active payment exists"
+                    return PaymentResult(
+                        payment_id=active['id'],
+                        method=PaymentMethod(active['method']),
+                        amount=amt,
+                        text=text,
+                        pay_url=pay_url
                     )
-                    LOG.info(f"User {tg_id} forced new payment, cancelled pending payments: {payment_ids}")
-
 
             currency = "RUB"
             comment = None
