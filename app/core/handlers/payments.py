@@ -122,8 +122,11 @@ async def process_custom_amount(message: Message, state: FSMContext, t):
 
     data = await state.get_data()
     method_str = data.get('method')
+    if not method_str:
+        await message.answer(t('error_creating_payment'))
+        await state.clear()
+        return
     await state.clear()
-
     await process_payment(message, t, method_str, amount)
 
 
@@ -141,11 +144,15 @@ def _build_payment_keyboard(t, method: PaymentMethod, result):
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=t('pay_button'), url=result.pay_url)]
         ])
-    elif method == PaymentMethod.YOOKASSA and result.pay_url:
+    elif method == PaymentMethod.YOOKASSA:
+        if not getattr(result, 'pay_url', None):
+            LOG.error(f"No pay_url for YooKassa payment {getattr(result, 'payment_id', '?')}")
+            return None
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=t('pay_button'), url=result.pay_url)],
             [InlineKeyboardButton(text=t('payment_sent'), callback_data=f'payment_sent_{result.payment_id}')]
         ])
+
     return None
 
 
@@ -161,32 +168,8 @@ def _build_payment_text(t, method: PaymentMethod, result):
     return result.text
 
 
-async def _send_message(msg_or_callback, text, keyboard=None, parse_mode=None):
-    """Send message handling both callbacks and regular messages"""
-    is_callback = isinstance(msg_or_callback, CallbackQuery)
-    if is_callback:
-        await msg_or_callback.message.edit_text(text, reply_markup=keyboard, parse_mode=parse_mode)
-    else:
-        await msg_or_callback.answer(text, reply_markup=keyboard, parse_mode=parse_mode)
-
-
-async def _handle_active_payment_error(msg_or_callback, t, error_msg, method_str, amount):
-    """Handle error when user has active pending payment"""
-    parts = error_msg.split(":")
-    active_payment_id = int(parts[1])
-    active_amount = parts[2]
-    active_method = parts[3]
-
-    text = t('active_payment_exists', amount=active_amount, method=active_method.upper())
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t('continue_payment'), callback_data=f'continue_payment_{active_payment_id}')],
-        [InlineKeyboardButton(text=t('create_new_payment'), callback_data=f'force_payment_{method_str}_{amount}')],
-        [InlineKeyboardButton(text=t('back'), callback_data='balance')]
-    ])
-    await _send_message(msg_or_callback, text, kb)
-
-
 async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
+    """Process payment creation and send payment instructions"""
     tg_id = msg_or_callback.from_user.id
     is_callback = isinstance(msg_or_callback, CallbackQuery)
 
@@ -194,7 +177,11 @@ async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
         method = PaymentMethod(method_str)
     except ValueError:
         LOG.error(f"Invalid method for user {tg_id}: {method_str}")
-        await _send_message(msg_or_callback, t('error_creating_payment'), balance_kb(t))
+        text = t('error_creating_payment')
+        if is_callback:
+            await msg_or_callback.message.answer(text, reply_markup=balance_kb(t))
+        else:
+            await msg_or_callback.answer(text, reply_markup=balance_kb(t))
         return
 
     async with get_session() as session:
@@ -202,29 +189,34 @@ async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
             redis_client = await get_redis()
             manager = PaymentManager(session, redis_client)
             chat_id = msg_or_callback.message.chat.id if is_callback else msg_or_callback.chat.id
+            
             result = await manager.create_payment(t, tg_id=tg_id, method=method, amount=amount, chat_id=chat_id)
 
             text = _build_payment_text(t, method, result)
             kb = _build_payment_keyboard(t, method, result)
             parse_mode = "HTML" if method == PaymentMethod.TON else None
 
-            await _send_message(msg_or_callback, text, kb, parse_mode)
-
-        except ValueError as e:
-            error_msg = str(e)
-            if error_msg.startswith("active_payment:"):
-                await _handle_active_payment_error(msg_or_callback, t, error_msg, method_str, amount)
+            # CRITICAL FIX: Always send new message for payment instructions
+            if is_callback:
+                await msg_or_callback.message.answer(text, reply_markup=kb, parse_mode=parse_mode)
             else:
-                LOG.error(f"Payment error for user {tg_id}: ValueError: {e}")
-                await _send_message(msg_or_callback, t('error_creating_payment'), balance_kb(t))
+                await msg_or_callback.answer(text, reply_markup=kb, parse_mode=parse_mode)
 
-        except (OperationalError, SQLTimeoutError) as e:
-            LOG.error(f"Database error for user {tg_id}: {type(e).__name__}: {e}")
-            await _send_message(msg_or_callback, t('service_temporarily_unavailable'), balance_kb(t))
+        except (ValueError, OperationalError, SQLTimeoutError) as e:
+            LOG.error(f"Payment error for user {tg_id}: {type(e).__name__}: {e}", exc_info=True)
+            error_text = t('error_creating_payment')
+            if is_callback:
+                await msg_or_callback.message.answer(error_text, reply_markup=balance_kb(t))
+            else:
+                await msg_or_callback.answer(error_text, reply_markup=balance_kb(t))
 
         except Exception as e:
-            LOG.error(f"Payment error for user {tg_id}: {type(e).__name__}: {e}")
-            await _send_message(msg_or_callback, t('error_creating_payment'), balance_kb(t))
+            LOG.error(f"Unexpected payment error for user {tg_id}: {type(e).__name__}: {e}", exc_info=True)
+            error_text = t('error_creating_payment')
+            if is_callback:
+                await msg_or_callback.message.answer(error_text, reply_markup=balance_kb(t))
+            else:
+                await msg_or_callback.answer(error_text, reply_markup=balance_kb(t))
 
 
 @router.pre_checkout_query()
@@ -301,7 +293,6 @@ async def successful_payment(message: Message, t):
             from sqlalchemy import select
 
             # CRITICAL FIX: Acquire database lock FIRST to prevent race conditions
-            # Lock user row to serialize all payment confirmations for this user
             result = await session.execute(
                 select(User).where(User.tg_id == tg_id).with_for_update()
             )
@@ -323,7 +314,7 @@ async def successful_payment(message: Message, t):
             payment = result.scalar_one_or_none()
 
             if not payment:
-                # Check if already confirmed with this tx_hash (duplicate webhook)
+                # Check if already confirmed
                 result = await session.execute(
                     select(PaymentModel).where(
                         PaymentModel.tx_hash == payment_id,
@@ -332,7 +323,7 @@ async def successful_payment(message: Message, t):
                 )
                 existing = result.scalar_one_or_none()
                 if existing:
-                    LOG.warning(f"Stars payment {payment_id} already confirmed (duplicate webhook)")
+                    LOG.warning(f"Stars payment {payment_id} already confirmed")
                     await message.answer(t('payment_already_processed'))
                     return
 
@@ -342,13 +333,13 @@ async def successful_payment(message: Message, t):
 
             # Check if payment expired
             if payment.expires_at and datetime.utcnow() > payment.expires_at:
-                LOG.warning(f"Stars payment {payment.id} expired (expires_at: {payment.expires_at})")
+                LOG.warning(f"Stars payment {payment.id} expired")
                 payment.status = 'expired'
                 await session.commit()
                 await message.answer(t('payment_expired'))
                 return
 
-            # Check if tx_hash already used (should be caught by unique constraint, but double-check)
+            # Check if tx_hash already used
             if payment.tx_hash is not None:
                 LOG.warning(f"Payment {payment.id} already has tx_hash: {payment.tx_hash}")
                 await message.answer(t('payment_already_processed'))
@@ -357,33 +348,27 @@ async def successful_payment(message: Message, t):
             # Store old balance for logging
             old_balance = user.balance
 
-            # ATOMIC UPDATE: Update payment status and balance in single transaction
+            # ATOMIC UPDATE
             payment.status = 'confirmed'
             payment.tx_hash = payment_id
             payment.confirmed_at = datetime.utcnow()
-
-            # Credit payment amount
             user.balance += rub_amount
             new_balance = user.balance
 
-            # Commit transaction atomically
             await session.commit()
 
             LOG.info(f"Stars payment confirmed: payment_id={payment.id}, user={tg_id}, "
-                    f"amount={rub_amount}, balance: {old_balance} → {new_balance}, tx_hash={payment_id}")
+                    f"amount={rub_amount}, balance: {old_balance} → {new_balance}")
 
-            # Invalidate cache after successful commit (tolerate Redis failures)
+            # Invalidate cache
             try:
                 user_repo, _ = await get_repositories(session)
                 redis = await user_repo.get_redis()
                 await redis.delete(f"user:{tg_id}:balance")
             except Exception as redis_err:
                 LOG.warning(f"Redis error invalidating cache for user {tg_id}: {redis_err}")
-                # Don't fail payment confirmation - balance was updated successfully
 
             has_active_sub = await user_repo.has_active_subscription(tg_id)
-
-            # Build success message
             success_text = t('payment_success', amount=float(rub_amount))
 
             await message.answer(
@@ -396,171 +381,6 @@ async def successful_payment(message: Message, t):
             LOG.error(f"Error confirming Stars payment for user {tg_id}: {type(e).__name__}: {e}")
             await message.answer(t('error_creating_payment'))
             raise
-
-
-@router.callback_query(F.data.startswith('continue_payment_'))
-async def continue_payment_callback(callback: CallbackQuery, t):
-    """Continue with existing payment"""
-    await safe_answer_callback(callback)
-
-    try:
-        payment_id = int(callback.data.replace('continue_payment_', ''))
-
-        async with get_session() as session:
-            _, payment_repo = await get_repositories(session)
-            payment = await payment_repo.get_payment(payment_id)
-
-            if not payment or payment['status'] != 'pending':
-                await callback.message.edit_text(
-                    t('payment_expired'),
-                    reply_markup=balance_kb(t)
-                )
-                return
-
-            # Recreate payment message with the existing payment
-            method = PaymentMethod(payment['method'])
-
-            if method == PaymentMethod.TON:
-                text = t(
-                    'ton_payment_instruction',
-                    ton_amount=f'<b>{payment["expected_crypto_amount"]} TON</b>',
-                    wallet=f"<pre><code>{payment.get("wallet", "N/A")}</code></pre>",
-                    comment=f'<pre>{payment["comment"]}</pre>'
-                )
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text=t('payment_sent'), callback_data=f'payment_sent_{payment_id}')]
-                ])
-                await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-
-            elif method == PaymentMethod.CRYPTOBOT:
-                extra_data = payment.get('extra_data', {})
-                invoice_id = extra_data.get('invoice_id') if extra_data else None
-
-                if invoice_id:
-                    # Reconstruct pay URL
-                    from config import CRYPTOBOT_TESTNET
-                    domain = "testnet-pay.crypt.bot" if CRYPTOBOT_TESTNET else "pay.crypt.bot"
-                    pay_url = f"https://{domain}/invoice/{invoice_id}"
-
-                    text = (
-                        t("cryptobot_payment_intro") + "\n\n"
-                        + t("cryptobot_amount", amount=payment['amount']) + "\n\n"
-                        + t("cryptobot_click_button")
-                    )
-                    kb = InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(text=t('pay_button'), url=pay_url)]
-                    ])
-                    await callback.message.edit_text(text, reply_markup=kb)
-                else:
-                    await callback.message.edit_text(t('error_creating_payment'), reply_markup=balance_kb(t))
-
-            elif method == PaymentMethod.YOOKASSA:
-                extra_data = payment.get('extra_data', {})
-                yookassa_payment_id = extra_data.get('yookassa_payment_id') if extra_data else None
-
-                if yookassa_payment_id:
-                    # Reconstruct payment URL from YooKassa
-                    # Note: We need to fetch the payment URL from YooKassa API
-                    from yookassa import Payment as YooKassaPayment
-                    from config import YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY
-                    from yookassa import Configuration
-
-                    Configuration.configure(YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY)
-                    yookassa_payment = YooKassaPayment.find_one(yookassa_payment_id)
-
-                    if yookassa_payment and yookassa_payment.confirmation:
-                        pay_url = yookassa_payment.confirmation.confirmation_url
-                        text = (
-                            t("yookassa_payment_intro") + "\n\n"
-                            + t("yookassa_amount", amount=payment['amount']) + "\n\n"
-                            + t("yookassa_click_button")
-                        )
-                        kb = InlineKeyboardMarkup(inline_keyboard=[
-                            [InlineKeyboardButton(text=t('pay_button'), url=pay_url)],
-                            [InlineKeyboardButton(text=t('payment_sent'), callback_data=f'payment_sent_{payment_id}')]
-                        ])
-                        await callback.message.edit_text(text, reply_markup=kb)
-                    else:
-                        await callback.message.edit_text(t('error_creating_payment'), reply_markup=balance_kb(t))
-                else:
-                    await callback.message.edit_text(t('error_creating_payment'), reply_markup=balance_kb(t))
-
-            else:
-                await callback.message.edit_text(t('error_creating_payment'), reply_markup=balance_kb(t))
-
-    except Exception as e:
-        LOG.error(f"Error continuing payment: {e}")
-        await callback.message.edit_text(
-            t('error_creating_payment'),
-            reply_markup=balance_kb(t)
-        )
-
-
-@router.callback_query(F.data.startswith('force_payment_'))
-async def force_payment_callback(callback: CallbackQuery, t):
-    """Create new payment even if active one exists"""
-    await safe_answer_callback(callback)
-
-    try:
-        parts = callback.data.replace('force_payment_', '').split('_')
-        method_str = parts[0]
-        amount = Decimal(parts[1])
-
-        tg_id = callback.from_user.id
-
-        async with get_session() as session:
-            redis_client = await get_redis()
-            manager = PaymentManager(session, redis_client)
-            method = PaymentMethod(method_str)
-
-            # Create payment with force_new=True
-            result = await manager.create_payment(
-                t,
-                tg_id=tg_id,
-                method=method,
-                amount=amount,
-                chat_id=callback.message.chat.id,
-                force_new=True
-            )
-
-            # Display payment details
-            if method == PaymentMethod.TON:
-                text = t(
-                    'ton_payment_instruction',
-                    ton_amount=f'<b>{result.expected_crypto_amount} TON</b>',
-                    wallet=f"<pre><code>{result.wallet}</code></pre>",
-                    comment=f'<pre>{result.comment}</pre>'
-                )
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text=t('payment_sent'), callback_data=f'payment_sent_{result.payment_id}')]
-                ])
-                await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
-
-            elif method == PaymentMethod.STARS and result.url:
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text=t('pay_button'), url=result.url)]
-                ])
-                await callback.message.edit_text(result.text, reply_markup=kb)
-
-            elif method == PaymentMethod.CRYPTOBOT and result.pay_url:
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text=t('pay_button'), url=result.pay_url)]
-                ])
-                await callback.message.edit_text(result.text, reply_markup=kb)
-
-            elif method == PaymentMethod.YOOKASSA and result.pay_url:
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text=t('pay_button'), url=result.pay_url)],
-                    [InlineKeyboardButton(text=t('payment_sent'), callback_data=f'payment_sent_{result.payment_id}')]
-                ])
-                await callback.message.edit_text(result.text, reply_markup=kb)
-
-    except Exception as e:
-        LOG.error(f"Error creating forced payment: {e}")
-        await callback.message.edit_text(
-            t('error_creating_payment'),
-            reply_markup=balance_kb(t)
-        )
 
 
 @router.callback_query(F.data.startswith('payment_sent_'))
@@ -583,7 +403,7 @@ async def payment_sent_callback(callback: CallbackQuery, t):
             if not payment:
                 raise ValueError(f"Payment {payment_id} not found")
 
-            # Check payment immediately when user clicks button
+            # Check payment immediately
             confirmed = await manager.check_payment(payment_id)
 
             # Get updated balance
@@ -592,19 +412,15 @@ async def payment_sent_callback(callback: CallbackQuery, t):
             has_active_sub = await user_repo.has_active_subscription(tg_id)
 
             if confirmed:
-                # Payment confirmed successfully
                 text = t('payment_success', amount=float(payment['amount'])) + "\n\n" + t('balance_text', balance=balance)
             else:
-                # Payment not yet confirmed
                 text = t('payment_not_found') + "\n\n" + t('balance_text', balance=balance)
 
             if has_active_sub:
-                from .utils import format_expire_date
                 sub_end = await user_repo.get_subscription_end(tg_id)
                 expire_date = format_expire_date(sub_end)
                 text += f"\n\n{t('subscription_active_until', expire_date=expire_date)}"
             else:
-                from config import PLANS
                 cheapest = min(PLANS.values(), key=lambda x: x['price'])
                 text += f"\n\n{t('subscription_from', price=cheapest['price'])}"
 
@@ -612,7 +428,6 @@ async def payment_sent_callback(callback: CallbackQuery, t):
 
         except Exception as e:
             LOG.error(f"Error checking payment {payment_id}: {e}")
-            # Fallback to showing balance screen
             user_repo, _ = await get_repositories(session)
             balance = await get_user_balance(user_repo, tg_id)
             text = t('balance_text', balance=balance)
