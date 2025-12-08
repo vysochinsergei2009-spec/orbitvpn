@@ -63,6 +63,21 @@ class PaymentManager:
                     # If there's an active payment, raise exception with payment details
                     active = active_payments[0]
                     raise ValueError(f"active_payment:{active['id']}:{active['amount']}:{active['method']}")
+            else:
+                # If force_new is True, cancel all other pending payments for this user
+                active_payments = await self.payment_repo.get_active_pending_payments(tg_id)
+                if active_payments:
+                    from app.repo.models import Payment
+                    from sqlalchemy import update
+
+                    payment_ids = [p['id'] for p in active_payments]
+                    await self.session.execute(
+                        update(Payment)
+                        .where(Payment.id.in_(payment_ids))
+                        .values(status='cancelled')
+                    )
+                    LOG.info(f"User {tg_id} forced new payment, cancelled pending payments: {payment_ids}")
+
 
             currency = "RUB"
             comment = None
