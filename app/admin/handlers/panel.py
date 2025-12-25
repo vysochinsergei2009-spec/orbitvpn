@@ -5,7 +5,7 @@ from aiogram.types import CallbackQuery
 
 from app.admin.keyboards import admin_panel_kb
 from app.core.handlers.utils import safe_answer_callback
-from config import ADMIN_TG_ID
+from config import ADMIN_TG_IDS
 
 router = Router()
 
@@ -17,7 +17,7 @@ async def show_admin_panel(callback: CallbackQuery, t):
     tg_id = callback.from_user.id
 
     # Security check: only admin can access
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -33,7 +33,7 @@ async def admin_stats(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
