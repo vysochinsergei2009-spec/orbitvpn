@@ -11,7 +11,7 @@ from app.repo.db import get_session
 from app.repo.models import MarzbanInstance
 from app.repo.marzban_client import MarzbanClient
 from app.utils.logging import get_logger
-from config import ADMIN_TG_ID
+from config import ADMIN_TG_IDS
 
 LOG = get_logger(__name__)
 
@@ -24,7 +24,7 @@ async def admin_servers(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -83,7 +83,7 @@ async def admin_clear_configs(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -99,7 +99,7 @@ async def admin_clear_configs_execute(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 

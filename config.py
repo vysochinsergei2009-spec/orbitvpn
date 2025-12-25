@@ -54,7 +54,15 @@ def _load_plans(file_path: str = "plans.json") -> dict[str, Any]:
 
 # --- Telegram Bot Configuration ---
 BOT_TOKEN: Final[str] = _get_required_env("BOT_TOKEN")
-ADMIN_TG_ID: Final[int] = _get_env_int("ADMIN_TG_ID", 0)  # Admin Telegram ID for admin panel access
+
+# Parse ADMIN_TG_IDS from comma-separated string in .env
+_admin_ids_str = os.getenv("ADMIN_TG_IDS", "")
+ADMIN_TG_IDS: Final[list[int]] = [int(id.strip()) for id in _admin_ids_str.split(",") if id.strip()]
+
+# Backward compatibility: fallback to single ADMIN_TG_ID if ADMIN_TG_IDS not set
+if not ADMIN_TG_IDS:
+    _single_admin = _get_env_int("ADMIN_TG_ID", 0)
+    ADMIN_TG_IDS = [_single_admin] if _single_admin else []
 
 bot: Final[Bot] = Bot(token=BOT_TOKEN)
 
@@ -89,11 +97,9 @@ REDIS_TTL: Final[int] = 300  # Cache TTL in seconds (5 minutes)
 PORT: Final[int] = _get_env_int("PORT", 5000)
 
 # --- Marzban VPN Panel Configuration ---
-# DEPRECATED: These single-instance configs are kept for backward compatibility
-# New deployments should use marzban_instances table in database
-S001_MARZBAN_USERNAME: Final[str] = _get_required_env("S001_MARZBAN_USERNAME")
-S001_MARZBAN_PASSWORD: Final[str] = _get_required_env("S001_MARZBAN_PASSWORD")
-S001_BASE_URL: Final[str] = os.getenv("S001_BASE_URL", "https://s001.orbitcorp.space:8000/")
+MARZBAN_USERNAME: Final[str] = _get_required_env("MARZBAN_USERNAME")
+MARZBAN_PASSWORD: Final[str] = _get_required_env("MARZBAN_PASSWORD")
+MARZBAN_BASE_URL: Final[str] = os.getenv("MARZBAN_BASE_URL", "https://s001.orbitcorp.space:8000/")
 
 # Note: To add multiple Marzban instances, insert them into marzban_instances table:
 # INSERT INTO marzban_instances (id, name, base_url, username, password, is_active, priority)

@@ -5,14 +5,14 @@ from typing import Any, Awaitable, Callable, Dict
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message
 
-from config import ADMIN_TG_ID
+from config import ADMIN_TG_IDS
 
 
 class AdminMiddleware(BaseMiddleware):
     """
     Middleware to restrict admin handlers to authorized users.
 
-    Checks if user's Telegram ID matches ADMIN_TG_ID from config.
+    Checks if user's Telegram ID is in ADMIN_TG_IDS list from config.
     If not authorized, returns access denied message and blocks handler execution.
     """
 
@@ -36,7 +36,7 @@ class AdminMiddleware(BaseMiddleware):
         user_id = event.from_user.id
 
         # Check if user is admin
-        if user_id != ADMIN_TG_ID:
+        if user_id not in ADMIN_TG_IDS:
             # Get translator function from data
             t = data.get('t')
             if t:

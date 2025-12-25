@@ -4,7 +4,7 @@ from typing import Any
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from config import ADMIN_TG_ID, PLANS
+from config import ADMIN_TG_IDS, PLANS
 
 
 def _build_keyboard(
@@ -41,7 +41,7 @@ def main_kb(t: Callable[[str], str], user_id: int | None = None) -> InlineKeyboa
     ]
 
     # Show Admin button for admin, Help for others
-    if user_id and user_id == ADMIN_TG_ID:
+    if user_id and user_id in ADMIN_TG_IDS:
         buttons.append({'text': t('admin'), 'callback_data': 'admin_panel'})
     else:
         buttons.append({'text': t('help'), 'url': 'https://t.me/chnddy'})

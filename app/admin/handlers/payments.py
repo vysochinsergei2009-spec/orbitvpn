@@ -11,7 +11,7 @@ from sqlalchemy import select, func
 from app.admin.keyboards import admin_payments_kb
 from app.repo.db import get_session
 from app.repo.models import Payment
-from config import ADMIN_TG_ID
+from config import ADMIN_TG_IDS
 
 
 router = Router()
@@ -31,7 +31,7 @@ async def show_admin_payments(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -140,7 +140,7 @@ async def show_recent_payments(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 

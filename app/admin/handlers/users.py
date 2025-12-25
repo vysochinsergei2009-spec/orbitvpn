@@ -14,7 +14,7 @@ from app.admin.keyboards import admin_users_kb, admin_user_detail_kb, admin_user
 from app.repo.db import get_session
 from app.repo.models import User
 from app.repo.user import UserRepository
-from config import ADMIN_TG_ID
+from config import ADMIN_TG_IDS
 
 
 router = Router()
@@ -41,7 +41,7 @@ async def show_admin_users(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -97,7 +97,7 @@ async def admin_search_user_start(callback: CallbackQuery, t, state: FSMContext)
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -110,7 +110,7 @@ async def admin_search_user_process(message: Message, t, state: FSMContext):
     """Process user ID search"""
     tg_id = message.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         return
 
     try:
@@ -173,7 +173,7 @@ async def admin_grant_sub_start(callback: CallbackQuery, t, state: FSMContext):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -189,7 +189,7 @@ async def admin_grant_sub_process(message: Message, t, state: FSMContext):
     """Process granting subscription"""
     tg_id = message.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         return
 
     try:
@@ -228,7 +228,7 @@ async def admin_revoke_sub(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -249,7 +249,7 @@ async def admin_add_balance_start(callback: CallbackQuery, t, state: FSMContext)
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -265,7 +265,7 @@ async def admin_add_balance_process(message: Message, t, state: FSMContext):
     """Process adding balance"""
     tg_id = message.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         return
 
     try:
@@ -293,7 +293,7 @@ async def admin_view_configs(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -332,7 +332,7 @@ async def admin_user_list(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -346,7 +346,7 @@ async def admin_user_list_page_handler(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 

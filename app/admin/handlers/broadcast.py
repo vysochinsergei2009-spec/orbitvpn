@@ -16,7 +16,7 @@ from app.admin.keyboards import (
 from app.repo.db import get_session
 from app.repo.user import UserRepository
 from app.utils.logging import get_logger
-from config import ADMIN_TG_ID
+from config import ADMIN_TG_IDS
 
 router = Router()
 LOG = get_logger(__name__)
@@ -42,7 +42,7 @@ async def admin_broadcast(callback: CallbackQuery, t, state: FSMContext):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -59,7 +59,7 @@ async def receive_broadcast_message(message: Message, t, state: FSMContext):
     """Receive broadcast message and show settings"""
     tg_id = message.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         return
 
     # Save message to state
@@ -80,7 +80,7 @@ async def set_broadcast_target(callback: CallbackQuery, t, state: FSMContext):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -103,7 +103,7 @@ async def set_broadcast_time(callback: CallbackQuery, t, state: FSMContext):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -126,7 +126,7 @@ async def confirm_broadcast(callback: CallbackQuery, t, state: FSMContext):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -161,7 +161,7 @@ async def execute_broadcast(callback: CallbackQuery, t, state: FSMContext):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
@@ -220,7 +220,7 @@ async def cancel_broadcast(callback: CallbackQuery, t, state: FSMContext):
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
-    if tg_id != ADMIN_TG_ID:
+    if tg_id not in ADMIN_TG_IDS:
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
