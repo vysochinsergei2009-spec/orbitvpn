@@ -11,7 +11,12 @@ async def init_cache():
             redis_client = await redis.from_url(
                 url,
                 encoding="utf-8",
-                decode_responses=True
+                decode_responses=True,
+                socket_connect_timeout=5,
+                socket_keepalive=True,
+                health_check_interval=30,
+                retry_on_timeout=True,
+                max_connections=10
             )
             await redis_client.ping()
             print("Redis connected")

@@ -7,6 +7,8 @@ from enum import Enum
 class PaymentMethod(str, Enum):
     TON = "ton"
     STARS = "stars"
+    CRYPTOBOT = "cryptobot"
+    YOOKASSA = "yookassa"
 
 class PaymentStatus(str, Enum):
     PENDING = "pending"
@@ -24,6 +26,8 @@ class PaymentResult:
     wallet: Optional[str] = None
     comment: Optional[str] = None
     expected_crypto_amount: Optional[Decimal] = None
+    pay_url: Optional[str] = None  # For CryptoBot invoice URL
+    invoice_id: Optional[str] = None  # For CryptoBot invoice tracking
 
 @dataclass
 class Payment:

@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, BigInteger, String, Boolean, DateTime, Numeric, Float, Text, CHAR
+    Column, Integer, BigInteger, String, Boolean, DateTime, Numeric, Float, Text, CHAR, ARRAY, JSON
 )
 from .db import Base
 from datetime import datetime
@@ -11,7 +11,6 @@ class Config(Base):
     name = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     vless_link = Column(String)
-    server_id = Column(String)
     username = Column(String)
     deleted = Column(Boolean, default=False)
 
@@ -27,28 +26,9 @@ class Payment(Base):
     tx_hash = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     confirmed_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)  # Payment expiration time
     expected_crypto_amount = Column(Numeric, nullable=True)
-
-class PromocodeUsage(Base):
-    __tablename__ = "promocode_usages"
-    id = Column(BigInteger, primary_key=True)
-    promocode_id = Column(BigInteger)
-    tg_id = Column(BigInteger)
-    activated_at = Column(DateTime)
-
-class Promocode(Base):
-    __tablename__ = "promocodes"
-    id = Column(BigInteger, primary_key=True)
-    code = Column(Text)
-    description = Column(Text)
-    created_at = Column(DateTime)
-    expires_at = Column(DateTime)
-    usage_limit = Column(Integer)
-    used_count = Column(Integer)
-    reward_type = Column(Text)
-    reward_value = Column(Numeric)
-    creator_id = Column(BigInteger)
-    active = Column(Boolean)
+    extra_data = Column(JSON, nullable=True)  # For storing extra data like CryptoBot invoice_id
 
 class Referral(Base):
     __tablename__ = "referrals"
@@ -60,20 +40,6 @@ class Referral(Base):
     reward_given = Column(Boolean)
     reward_amount = Column(Float)
     note = Column(Text)
-
-class Server(Base):
-    __tablename__ = "servers"
-    id = Column(String, primary_key=True)
-    country = Column(String)
-    ip = Column(String)
-    ram = Column(Integer)
-    volume = Column(Integer)
-    users_count = Column(Integer)
-    base_url = Column(Text)
-    load_avg = Column(Float)
-    login = Column(Text)
-    password = Column(Text)
-    updated_at = Column(DateTime)
 
 class TonTransaction(Base):
     __tablename__ = "ton_transactions"
@@ -87,15 +53,12 @@ class TonTransaction(Base):
 class User(Base):
     __tablename__ = "users"
     tg_id = Column(BigInteger, primary_key=True)
-    user_ip = Column(Text)
     balance = Column(Numeric, default=0)
-    plan = Column(Text)
     subscription_end = Column(DateTime)
-    traffic_used = Column(BigInteger, default=0)
-    max_traffic = Column(BigInteger, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     username = Column(Text)
     lang = Column(String, default="ru")
     configs = Column(Integer, default=0)
     referrer_id = Column(BigInteger)
     first_buy = Column(Boolean, default=True)
+    notifications = Column(Boolean, default=True)
