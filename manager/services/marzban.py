@@ -9,7 +9,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from manager.core.service import ManagedService
-from manager.core.models import (
+from manager.core.models федерации (
     ServiceStatus,
     HealthStatus,
     HealthCheckResult,
@@ -19,12 +19,14 @@ from manager.core.models import (
 )
 from manager.config.manager_config import MarzbanMonitorConfig
 from manager.utils.logger import get_logger
+# Import the refactored client
+from app.repo.marzban_client import MarzbanClient, MarzbanInstance
 
 LOG = get_logger(__name__)
 
 
 class MarzbanMonitorService(ManagedService):
-    """Monitors Marzban instances and nodes"""
+    """Monitors the single Marzban instance defined in the environment."""
 
     def __init__(self, config: MarzbanMonitorConfig):
         super().__init__("marzban_monitor")
@@ -53,176 +55,110 @@ class MarzbanMonitorService(ManagedService):
         return True
 
     async def health_check(self) -> HealthCheckResult:
-        """Check health of all Marzban instances."""
+        """Check health of the Marzban instance."""
         start_time = time.time()
-
+        client = MarzbanClient()
+        instance = client._instance # Get the single instance
+        api = client._get_or_create_api(instance)
+        
         try:
-            # Import here to avoid circular imports
-            from app.repo.db import get_db
-            from app.repo.models import MarzbanInstance
-            from sqlalchemy import select
-
-            healthy_count = 0
-            total_count = 0
-            details = {}
-
-            async for db in get_db():
-                # Get all active instances
-                result = await db.execute(
-                    select(MarzbanInstance).where(MarzbanInstance.is_active == True)
-                )
-                instances = result.scalars().all()
-
-                total_count = len(instances)
-
-                # Check each instance
-                for instance in instances:
-                    try:
-                        # Try to get token (basic connectivity check)
-                        from app.repo.marzban_client import MarzbanClient
-                        client = MarzbanClient()
-
-                        token = await client._get_token(instance.id)
-                        if token:
-                            healthy_count += 1
-                            details[instance.id] = "healthy"
-                        else:
-                            details[instance.id] = "no_token"
-
-                    except Exception as e:
-                        details[instance.id] = f"error: {str(e)}"
-
-                break  # Only need one DB session
-
+            # A lightweight check, e.g., getting system stats or a non-existent user
+            await api.get_users(limit=1) 
             response_time = (time.time() - start_time) * 1000
-
-            if healthy_count == 0:
-                return HealthCheckResult(
-                    status=HealthStatus.UNHEALTHY,
-                    message=f"No healthy Marzban instances (0/{total_count})",
-                    details=details,
-                    response_time_ms=response_time
-                )
-            elif healthy_count < total_count:
-                return HealthCheckResult(
-                    status=HealthStatus.DEGRADED,
-                    message=f"Some Marzban instances unhealthy ({healthy_count}/{total_count})",
-                    details=details,
-                    response_time_ms=response_time
-                )
-            else:
-                return HealthCheckResult(
-                    status=HealthStatus.HEALTHY,
-                    message=f"All Marzban instances healthy ({healthy_count}/{total_count})",
-                    details=details,
-                    response_time_ms=response_time
-                )
-
+            return HealthCheckResult(
+                status=HealthStatus.HEALTHY,
+                message="Marzban instance is healthy",
+                details={instance.id: "healthy"},
+                response_time_ms=response_time
+            )
         except Exception as e:
+            LOG.warning(f"Marzban health check failed: {e}")
+            response_time = (time.time() - start_time) * 1000
             return HealthCheckResult(
                 status=HealthStatus.UNHEALTHY,
-                message=f"Health check error: {str(e)}",
-                response_time_ms=(time.time() - start_time) * 1000
+                message=f"Marzban instance is unhealthy: {e}",
+                details={instance.id: f"error: {str(e)}"},
+                response_time_ms=response_time
             )
 
     async def get_metrics(self) -> ServiceMetrics:
         """Get Marzban monitoring metrics."""
         metrics = ServiceMetrics()
-
         try:
-            # Get instance statistics
             instances = await self.get_instances_info()
+            if not instances:
+                return metrics
 
-            total_users = sum(inst.total_users for inst in instances)
-            active_users = sum(inst.active_users for inst in instances)
-            total_nodes = sum(len(inst.nodes) for inst in instances)
-            healthy_nodes = sum(
-                len([n for n in inst.nodes if n.status == HealthStatus.HEALTHY])
-                for inst in instances
-            )
+            instance = instances[0]
+            healthy_nodes = sum(1 for n in instance.nodes if n.status == HealthStatus.HEALTHY)
 
             metrics.custom_metrics = {
-                "total_instances": len(instances),
-                "active_instances": len([i for i in instances if i.is_active]),
-                "total_users": total_users,
-                "active_users": active_users,
-                "total_nodes": total_nodes,
-                "healthy_nodes": healthy_nodes
+                "total_instances": 1,
+                "active_instances": 1 if instance.is_active else 0,
+                "total_users": instance.total_users,
+                "active_users": instance.active_users,
+                "total_nodes": len(instance.nodes),
+                "healthy_nodes": healthy_nodes,
             }
-
         except Exception as e:
             LOG.error(f"Error collecting Marzban metrics: {e}")
-
         return metrics
 
     async def get_instances_info(self) -> List[MarzbanInstanceInfo]:
-        """Get detailed information about all Marzban instances."""
-        # Check cache
+        """Get detailed information about the Marzban instance."""
         if self._last_update and self._instances_cache:
             elapsed = (datetime.now() - self._last_update).total_seconds()
             if elapsed < self.config.check_interval:
                 return self._instances_cache
 
         try:
-            from app.repo.db import get_db
-            from app.repo.models import MarzbanInstance
-            from app.repo.marzban_client import MarzbanClient
-            from sqlalchemy import select
-
-            instances_info = []
             client = MarzbanClient()
+            instance = client._instance
+            api = client._get_or_create_api(instance)
 
-            async for db in get_db():
-                result = await db.execute(select(MarzbanInstance))
-                instances = result.scalars().all()
+            instance_info = MarzbanInstanceInfo(
+                instance_id=instance.id,
+                name=instance.name,
+                base_url=instance.base_url,
+                status=HealthStatus.UNKNOWN,
+                is_active=instance.is_active,
+                priority=instance.priority,
+                nodes=[],
+                total_users=0,
+                active_users=0
+            )
 
-                for instance in instances:
-                    instance_info = MarzbanInstanceInfo(
-                        instance_id=instance.id,
-                        name=instance.name,
-                        base_url=instance.base_url,
-                        status=HealthStatus.UNKNOWN,
-                        is_active=instance.is_active,
-                        priority=instance.priority,
-                        nodes=[],
-                        total_users=0,
-                        active_users=0
+            try:
+                # Get nodes information
+                nodes_data = await api.get_nodes()
+                for node_data in nodes_data:
+                    node_info = MarzbanNodeInfo(
+                        name=node_data.name or 'Unknown',
+                        address=node_data.address or '',
+                        status=HealthStatus.HEALTHY if node_data.status == 'connected' else HealthStatus.UNHEALTHY,
+                        users_count=node_data.users_count or 0,
+                        # Assuming users_active is not directly available in this model
+                        users_active=0,
                     )
+                    instance_info.nodes.append(node_info)
 
-                    try:
-                        # Get nodes information
-                        nodes = await client.get_nodes(instance.id)
+                # Get users count
+                users_data = await api.get_users(limit=10000)
+                instance_info.total_users = len(users_data.users)
+                instance_info.active_users = sum(1 for u in users_data.users if u.status == 'active')
 
-                        for node in nodes:
-                            node_info = MarzbanNodeInfo(
-                                name=node.get('name', 'Unknown'),
-                                address=node.get('address', ''),
-                                status=HealthStatus.HEALTHY if node.get('status') == 'connected' else HealthStatus.UNHEALTHY,
-                                users_count=node.get('users_count', 0),
-                                users_active=node.get('users_active', 0)
-                            )
-                            instance_info.nodes.append(node_info)
+                instance_info.status = HealthStatus.HEALTHY
+            except Exception as e:
+                LOG.error(f"Error getting info for instance {instance.id}: {e}")
+                instance_info.status = HealthStatus.UNHEALTHY
 
-                        # Get users count
-                        users = await client.get_users(instance.id)
-                        instance_info.total_users = len(users) if users else 0
-
-                        instance_info.status = HealthStatus.HEALTHY
-
-                    except Exception as e:
-                        LOG.error(f"Error getting info for instance {instance.id}: {e}")
-                        instance_info.status = HealthStatus.UNHEALTHY
-
-                    instance_info.last_check = datetime.now()
-                    instances_info.append(instance_info)
-
-                break
-
+            instance_info.last_check = datetime.now()
+            
             # Update cache
-            self._instances_cache = instances_info
+            self._instances_cache = [instance_info]
             self._last_update = datetime.now()
-
-            return instances_info
+            
+            return self._instances_cache
 
         except Exception as e:
             LOG.error(f"Error getting instances info: {e}")
@@ -231,7 +167,6 @@ class MarzbanMonitorService(ManagedService):
     async def get_instance_details(self, instance_id: str) -> Optional[MarzbanInstanceInfo]:
         """Get detailed information about a specific instance."""
         instances = await self.get_instances_info()
-        for instance in instances:
-            if instance.instance_id == instance_id:
-                return instance
+        if instances and instances[0].instance_id == instance_id:
+            return instances[0]
         return None

@@ -11,7 +11,6 @@ class Config(Base):
     name = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     vless_link = Column(String)
-    server_id = Column(String)
     username = Column(String)
     deleted = Column(Boolean, default=False)
 
@@ -41,37 +40,6 @@ class Referral(Base):
     reward_given = Column(Boolean)
     reward_amount = Column(Float)
     note = Column(Text)
-
-class MarzbanInstance(Base):
-    __tablename__ = "marzban_instances"
-    id = Column(String, primary_key=True)  # e.g., "s001", "s002"
-    name = Column(String)  # Friendly name
-    base_url = Column(Text, nullable=False)  # Marzban panel URL
-    username = Column(Text, nullable=False)  # Marzban login
-    password = Column(Text, nullable=False)  # Marzban password
-    is_active = Column(Boolean, default=True)  # Enable/disable instance
-    priority = Column(Integer, default=100)  # Lower = higher priority
-    excluded_node_names = Column(ARRAY(String), default=[])  # Node names to exclude from load balancing
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-class Server(Base):
-    """
-    DEPRECATED: Use MarzbanInstance instead.
-    Kept for backward compatibility with existing data.
-    """
-    __tablename__ = "servers"
-    id = Column(String, primary_key=True)
-    country = Column(String)
-    ip = Column(String)
-    ram = Column(Integer)
-    volume = Column(Integer)
-    users_count = Column(Integer)
-    base_url = Column(Text)
-    load_avg = Column(Float)
-    login = Column(Text)
-    password = Column(Text)
-    updated_at = Column(DateTime)
 
 class TonTransaction(Base):
     __tablename__ = "ton_transactions"

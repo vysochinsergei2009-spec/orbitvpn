@@ -1,14 +1,11 @@
 import logging
 import uuid
+import asyncio
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
-import asyncio
+
+from gateway import *
 from app.payments.models import PaymentResult, PaymentMethod
-from app.payments.gateway.base import BasePaymentGateway
-from app.payments.gateway.ton import TonGateway
-from app.payments.gateway.stars import TelegramStarsGateway
-from app.payments.gateway.cryptobot import CryptoBotGateway
-from app.payments.gateway.yookassa import YooKassaGateway
 from app.repo.payments import PaymentRepository
 from app.repo.user import UserRepository
 from app.repo.db import get_session
