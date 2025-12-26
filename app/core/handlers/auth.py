@@ -3,7 +3,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 
 from app.core.keyboards import main_kb, get_referral_keyboard
-from app.repo.db import get_session
+from app.db.db import get_session
 from config import FREE_TRIAL_DAYS
 from .utils import safe_answer_callback, get_repositories, extract_referrer_id
 
@@ -16,7 +16,7 @@ async def cmd_start(message: Message, t):
     username = message.from_user.username or f"unknown_{tg_id}"
     referrer_id = extract_referrer_id(message.text)
 
-    # Prevent self-referral
+
     if referrer_id and referrer_id == tg_id:
         referrer_id = None
 

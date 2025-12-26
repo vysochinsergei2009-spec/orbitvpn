@@ -2,9 +2,11 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from sqlalchemy import select, update, func
-from app.repo.db import get_session
-from app.repo.models import User, Config
-from app.repo.marzban_client import MarzbanClient
+from app.db.db import get_session
+from app.db.models import User, Config
+from app.api import ClientApiManager
+from app.models.server import Server, ServerTypes
+from config import MARZBAN_BASE_URL, MARZBAN_USERNAME, MARZBAN_PASSWORD
 from app.utils.redis import get_redis
 
 LOG = logging.getLogger(__name__)
@@ -42,7 +44,29 @@ async def cleanup_expired_configs(days_threshold: int = 14) -> dict:
     try:
         async with get_session() as session:
             redis = await get_redis()
-            marzban_client = MarzbanClient()
+            
+            server = Server(
+                id="default_marzban",
+                name="Default Marzban",
+                types=ServerTypes.MARZBAN,
+                data={
+                    "host": MARZBAN_BASE_URL,
+                    "username": MARZBAN_USERNAME,
+                    "password": MARZBAN_PASSWORD,
+                },
+            )
+            from app.api.clients.marzban import MarzbanApiManager
+            api = MarzbanApiManager(host=server.data["host"])
+            token = await api.get_token(
+                username=server.data["username"], password=server.data["password"]
+            )
+            server.access = token.access_token if token else None
+
+            if not server.access:
+                LOG.error("Failed to get access token for Marzban server. Aborting cleanup.")
+                return stats
+
+            api_manager = ClientApiManager()
 
             # Calculate threshold date
             now = datetime.utcnow()
@@ -81,7 +105,7 @@ async def cleanup_expired_configs(days_threshold: int = 14) -> dict:
 
                     # 1. Delete from Marzban
                     try:
-                        await marzban_client.remove_user(username)
+                        await api_manager.remove_user(server, username)
                         LOG.info(f"Deleted Marzban user {username}")
                     except Exception as e:
                         LOG.warning(f"Failed to delete Marzban user {username}: {e} (continuing with DB cleanup)")

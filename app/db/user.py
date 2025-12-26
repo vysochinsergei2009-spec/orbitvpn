@@ -10,7 +10,16 @@ from sqlalchemy import select, update, func
 
 from .models import User, Config
 from .db import get_session
-from .marzban_client import MarzbanClient
+from app.api import ClientApiManager
+from app.models.server import Server, ServerTypes
+from config import (
+    MARZBAN_BASE_URL,
+    MARZBAN_USERNAME,
+    MARZBAN_PASSWORD,
+    MAX_IPS_PER_CONFIG,
+    REFERRAL_BONUS,
+    REDIS_TTL,
+)
 from app.utils.logging import get_logger
 from .base import BaseRepository
 from config import REFERRAL_BONUS, REDIS_TTL
@@ -210,26 +219,63 @@ class UserRepository(BaseRepository):
             "username": cfg.username
         }
 
+    async def _get_marzban_server(self) -> Server:
+        # In the future, this can be fetched from a database of servers
+        server = Server(
+            id="default_marzban",
+            name="Default Marzban",
+            types=ServerTypes.MARZBAN,
+            data={
+                "host": MARZBAN_BASE_URL,
+                "username": MARZBAN_USERNAME,
+                "password": MARZBAN_PASSWORD,
+            },
+        )
+        # This is a simplified way to get the token.
+        # In a real multi-server environment, tokens should be cached.
+        from app.api.clients.marzban import MarzbanApiManager
+        api = MarzbanApiManager(host=server.data["host"])
+        token = await api.get_token(
+            username=server.data["username"], password=server.data["password"]
+        )
+        server.access = token.access_token if token else None
+        return server
+
     # ----------------------------
     # Marzban safe wrappers
     # ----------------------------
     async def _safe_remove_marzban_user(self, username: str):
-        marzban_client = MarzbanClient()
         try:
-            await marzban_client.remove_user(username)
+            server = await self._get_marzban_server()
+            if not server.access:
+                LOG.error("Failed to get access token for Marzban server.")
+                return
+
+            api_manager = ClientApiManager()
+            await api_manager.remove_user(server, username)
             LOG.info("Removed marzban user %s", username)
         except Exception as e:
             LOG.warning("Failed to remove marzban user %s: %s", username, e)
             try:
-                await marzban_client.modify_user(username, expire=int(time.time() - 86400))
+                # Fallback to expire
+                server = await self._get_marzban_server()
+                if not server.access:
+                    LOG.error("Failed to get access token for Marzban server for fallback.")
+                    return
+                api_manager = ClientApiManager()
+                await api_manager.modify_user(server, username, {"expire": int(time.time() - 86400)})
                 LOG.info("Expired marzban user %s as fallback", username)
             except Exception as ex:
                 LOG.error("Failed to expire marzban user %s during fallback: %s", username, ex)
 
     async def _safe_modify_marzban_user(self, username: str, expire_ts: int):
-        marzban_client = MarzbanClient()
         try:
-            await marzban_client.modify_user(username, expire=expire_ts)
+            server = await self._get_marzban_server()
+            if not server.access:
+                LOG.error("Failed to get access token for Marzban server.")
+                return
+            api_manager = ClientApiManager()
+            await api_manager.modify_user(server, username, {"expire": expire_ts})
             LOG.info("Modified marzban user %s expire=%s", username, expire_ts)
         except Exception as e:
             LOG.error("Failed to modify marzban user %s expire=%s: %s", username, expire_ts, e)
@@ -431,7 +477,7 @@ class UserRepository(BaseRepository):
     async def create_and_add_config(
         self,
         tg_id: int,
-        manual_instance_id: Optional[str] = None
+        manual_instance_id: Optional[str] = None # This is now ignored
     ) -> Dict:
 
         redis = await self.get_redis()
@@ -460,36 +506,36 @@ class UserRepository(BaseRepository):
 
             days_remaining = max(1, int((user.subscription_end.timestamp() - time.time()) / 86400) + 1)
 
-        marzban_client = MarzbanClient()
+        server = await self._get_marzban_server()
+        if not server.access:
+            raise ValueError("Could not authenticate with Marzban server")
+
+        api_manager = ClientApiManager()
+
+        user_data = {
+            "username": username,
+            "expire": int(time.time() + days_remaining * 86400),
+            "data_limit": 300 * 1024 * 1024 * 1024, # 300 GB
+            "data_limit_reset_strategy": "month",
+            "ip_limit": MAX_IPS_PER_CONFIG,
+            "proxies": {"vless": {"flow": ""}},
+        }
 
         try:
-            new_user = await marzban_client.add_user(
-                username=username,
-                days=days_remaining,
-                manual_instance_id=manual_instance_id
-            )
-            if not new_user.links:
+            new_user = await api_manager.create_user(server, user_data)
+            if not new_user or not new_user.links:
                 raise ValueError("No VLESS link returned from Marzban")
             vless_link = new_user.links[0]
-
-            instance, _, _ = await marzban_client.get_best_instance_and_node(manual_instance_id)
-            instance_id = instance.id
 
         except Exception as e:
             error_str = str(e).lower()
             if "already exists" in error_str or "409" in error_str:
                 LOG.warning("Marzban user %s already exists; attempting remove+recreate", username)
-                await marzban_client.remove_user(username)
-                new_user = await marzban_client.add_user(
-                    username=username,
-                    days=days_remaining,
-                    manual_instance_id=manual_instance_id
-                )
-                if not new_user.links:
+                await api_manager.remove_user(server, username)
+                new_user = await api_manager.create_user(server, user_data)
+                if not new_user or not new_user.links:
                     raise ValueError("No VLESS link after recreate")
                 vless_link = new_user.links[0]
-                instance, _, _ = await marzban_client.get_best_instance_and_node(manual_instance_id)
-                instance_id = instance.id
             else:
                 LOG.error("Marzban add_user failed for %s: %s", username, e)
                 raise
@@ -503,7 +549,7 @@ class UserRepository(BaseRepository):
             )
             user = result.scalar_one_or_none()
             if not user or not user.subscription_end or time.time() >= user.subscription_end.timestamp():
-                await marzban_client.remove_user(username, instance_id)
+                await api_manager.remove_user(server, username)
                 raise ValueError("Subscription expired during config creation")
 
             result = await session.execute(
@@ -511,7 +557,7 @@ class UserRepository(BaseRepository):
             )
             count = result.scalar()
             if count >= 1:
-                await marzban_client.remove_user(username, instance_id)
+                await api_manager.remove_user(server, username)
                 raise ValueError("Max configs reached during creation")
 
             new_name = f"Configuration {count + 1}"
@@ -530,7 +576,7 @@ class UserRepository(BaseRepository):
 
         await redis.delete(f"user:{tg_id}:configs")
 
-        LOG.info("Config created for user %s on Marzban instance %s", tg_id, instance_id)
+        LOG.info("Config created for user %s on Marzban server %s", tg_id, server.name)
         return {
             "id": cfg.id,
             "name": cfg.name,

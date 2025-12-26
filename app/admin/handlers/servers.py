@@ -6,9 +6,9 @@ from aiogram.types import CallbackQuery
 from app.admin.keyboards import admin_servers_kb, admin_clear_configs_confirm_kb
 from app.core.handlers.utils import safe_answer_callback
 from app.utils.config_cleanup import cleanup_expired_configs
-# No longer needed from app.repo.db import get_session
-# No longer needed from app.repo.models import MarzbanInstance
-from app.repo.marzban_client import MarzbanClient
+from app.api import ClientApiManager
+from app.models.server import Server, ServerTypes
+from config import ADMIN_TG_IDS, MARZBAN_BASE_URL, MARZBAN_USERNAME, MARZBAN_PASSWORD
 from app.utils.logging import get_logger
 from config import ADMIN_TG_IDS
 
@@ -27,43 +27,69 @@ async def admin_servers(callback: CallbackQuery, t):
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
-    client = MarzbanClient()
-    instance = client._instance  # Get the single, env-configured instance
+    # For now, we manually create the list of servers.
+    # In the future, this should be fetched from a database.
+    servers = [
+        Server(
+            id="default_marzban",
+            name="Default Marzban",
+            types=ServerTypes.MARZBAN,
+            data={
+                "host": MARZBAN_BASE_URL,
+                "username": MARZBAN_USERNAME,
+                "password": MARZBAN_PASSWORD,
+            },
+        )
+    ]
 
-    total_instances = 1
-    active_instances = 1 if instance.is_active else 0
-    inactive_instances = 1 - active_instances
+    total_instances = len(servers)
+    active_instances = 0
+    
+    servers_text = ""
+    api_manager = ClientApiManager()
 
-    servers_text = t('admin_servers_stats',
+    for server in servers:
+        # Get access token
+        from app.api.clients.marzban import MarzbanApiManager as MarzbanApiClient
+        api = MarzbanApiClient(host=server.data["host"])
+        token = await api.get_token(
+            username=server.data["username"], password=server.data["password"]
+        )
+        server.access = token.access_token if token else None
+
+        if server.access:
+            active_instances += 1
+            status = t('admin_instance_active')
+            try:
+                nodes = await api_manager.get_nodes(server)
+                node_count = len(nodes) if nodes else 0
+            except Exception as e:
+                LOG.debug(f"Failed to get nodes for server {server.name}: {e}")
+                node_count = "N/A"
+        else:
+            status = t('admin_instance_inactive')
+            node_count = "N/A"
+
+        servers_text += t('admin_instance_item',
+                          name=server.name,
+                          id=server.id,
+                          url=server.data['host'],
+                          priority=1, # Hardcoded for now
+                          status=status,
+                          nodes=node_count,
+                          excluded=0) # Hardcoded for now
+
+    inactive_instances = total_instances - active_instances
+    
+    header = t('admin_servers_stats',
                      total=total_instances,
                      active=active_instances,
                      inactive=inactive_instances)
-
-    # Display the single instance details
-    status = t('admin_instance_active') if instance.is_active else t('admin_instance_inactive')
-    excluded_count = len(instance.excluded_node_names) if instance.excluded_node_names else 0
-
-    # Try to get node count from Marzban API
-    node_count = "N/A"
-    if instance.is_active:
-        try:
-            api = client._get_or_create_api(instance)
-            nodes = await api.get_nodes()
-            node_count = len(nodes)
-        except Exception as e:
-            LOG.debug(f"Failed to get nodes for instance {instance.id}: {e}")
-
-    servers_text += t('admin_instance_item',
-                      name=instance.name,
-                      id=instance.id,
-                      url=instance.base_url,
-                      priority=instance.priority,
-                      status=status,
-                      nodes=node_count,
-                      excluded=excluded_count)
+    
+    full_text = header + servers_text
 
     await callback.message.edit_text(
-        servers_text,
+        full_text,
         reply_markup=admin_servers_kb(t)
     )
 

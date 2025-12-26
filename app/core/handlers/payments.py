@@ -11,7 +11,7 @@ from app.core.keyboards import (
     balance_kb, get_payment_methods_keyboard, get_payment_amounts_keyboard,
     back_balance, payment_success_actions
 )
-from app.repo.db import get_session
+from app.db.db import get_session
 from app.payments.manager import PaymentManager
 from app.payments.models import PaymentMethod
 from app.utils.logging import get_logger

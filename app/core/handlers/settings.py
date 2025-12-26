@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
 from app.core.keyboards import set_kb, get_language_keyboard, get_notifications_keyboard
-from app.repo.db import get_session
+from app.db.db import get_session
 from .utils import safe_answer_callback, get_repositories
 
 router = Router()
