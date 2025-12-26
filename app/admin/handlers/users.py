@@ -314,7 +314,6 @@ async def admin_view_configs(callback: CallbackQuery, t):
     for idx, cfg in enumerate(configs, 1):
         configs_list.append(
             f"{idx}. {cfg['name']}\n"
-            f"   Server: {cfg['server_id']}\n"
             f"   Username: {cfg['username']}"
         )
 

@@ -70,8 +70,7 @@ async def cleanup_expired_configs(days_threshold: int = 14) -> dict:
                     tg_id = config.tg_id
                     username = config.username
                     config_id = config.id
-                    instance_id = config.server_id
-
+                    
                     # Skip if no username (shouldn't happen, but defensive)
                     if not username:
                         LOG.warning(f"Config {config_id} has no username, skipping")
@@ -82,8 +81,8 @@ async def cleanup_expired_configs(days_threshold: int = 14) -> dict:
 
                     # 1. Delete from Marzban
                     try:
-                        await marzban_client.remove_user(username, instance_id)
-                        LOG.info(f"Deleted Marzban user {username} from instance {instance_id}")
+                        await marzban_client.remove_user(username)
+                        LOG.info(f"Deleted Marzban user {username}")
                     except Exception as e:
                         LOG.warning(f"Failed to delete Marzban user {username}: {e} (continuing with DB cleanup)")
 

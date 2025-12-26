@@ -1,14 +1,24 @@
 from typing import Optional, List, Dict, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from aiomarzban import MarzbanAPI, UserDataLimitResetStrategy
-from sqlalchemy import select
 
-from app.repo.models import MarzbanInstance
-from app.repo.db import get_session
 from app.utils.logging import get_logger
-from config import MAX_IPS_PER_CONFIG
+from config import MAX_IPS_PER_CONFIG, MARZBAN_BASE_URL, MARZBAN_USERNAME, MARZBAN_PASSWORD
 
 LOG = get_logger(__name__)
+
+
+@dataclass
+class MarzbanInstance:
+    """Simplified dataclass to hold Marzban instance details."""
+    id: str = "default"
+    name: str = "Default Instance"
+    base_url: str = field(default=MARZBAN_BASE_URL)
+    username: str = field(default=MARZBAN_USERNAME)
+    password: str = field(default=MARZBAN_PASSWORD)
+    is_active: bool = True
+    priority: int = 1
+    excluded_node_names: Optional[List[str]] = None
 
 
 @dataclass
@@ -39,15 +49,11 @@ class NodeLoadMetrics:
 class MarzbanClient:
     def __init__(self):
         self._instances_cache: Dict[str, MarzbanAPI] = {}
+        self._instance = MarzbanInstance()
 
-    async def _get_active_instances(self) -> List[MarzbanInstance]:
-        async with get_session() as session:
-            result = await session.execute(
-                select(MarzbanInstance)
-                .where(MarzbanInstance.is_active == True)
-                .order_by(MarzbanInstance.priority.asc())
-            )
-            return list(result.scalars().all())
+    def _get_active_instances(self) -> List[MarzbanInstance]:
+        # This method now returns a list with the single, hardcoded instance.
+        return [self._instance]
 
     def _get_or_create_api(self, instance: MarzbanInstance) -> MarzbanAPI:
         if instance.id not in self._instances_cache:
@@ -169,57 +175,33 @@ class MarzbanClient:
 
     async def get_best_instance_and_node(
         self,
-        manual_instance_id: Optional[str] = None
+        manual_instance_id: Optional[str] = None # This is now ignored, but kept for compatibility
     ) -> Tuple[MarzbanInstance, MarzbanAPI, Optional[int]]:
-        instances = await self._get_active_instances()
+        instance = self._instance
 
-        if not instances:
+        if not instance.is_active:
             raise ValueError("No active Marzban instances available")
 
-        # Manual instance selection (for future feature: user chooses server)
-        if manual_instance_id:
-            selected_instance = next(
-                (inst for inst in instances if inst.id == manual_instance_id),
-                None
-            )
-            if not selected_instance:
-                raise ValueError(f"Marzban instance {manual_instance_id} not found or inactive")
-
-            api = self._get_or_create_api(selected_instance)
-            LOG.info(f"Manually selected instance: {manual_instance_id}")
-            return selected_instance, api, None
-
+        api = self._get_or_create_api(instance)
+        
         # Automatic selection: find least loaded node across all instances
-        all_metrics: List[NodeLoadMetrics] = []
-
-        for instance in instances:
-            api = self._get_or_create_api(instance)
-            metrics = await self._get_node_metrics(instance, api)
-            all_metrics.extend(metrics)
+        all_metrics: List[NodeLoadMetrics] = await self._get_node_metrics(instance, api)
 
         if not all_metrics:
             # Fallback to first available instance without node selection
-            first_instance = instances[0]
-            api = self._get_or_create_api(first_instance)
-            LOG.warning("No node metrics available, using first instance without node selection")
-            return first_instance, api, None
+            LOG.warning("No node metrics available, using instance without node selection")
+            return instance, api, None
 
         # Sort by load score (ascending = least loaded first)
         all_metrics.sort(key=lambda m: m.load_score)
         best_metric = all_metrics[0]
 
-        # Get the instance for the best node
-        selected_instance = next(
-            inst for inst in instances if inst.id == best_metric.instance_id
-        )
-        api = self._get_or_create_api(selected_instance)
-
         LOG.info(
             f"Selected node {best_metric.node_name} (ID: {best_metric.node_id}) "
-            f"on instance {selected_instance.id} with load score {best_metric.load_score:.2f}"
+            f"on instance {instance.id} with load score {best_metric.load_score:.2f}"
         )
 
-        return selected_instance, api, best_metric.node_id
+        return instance, api, best_metric.node_id
 
     async def add_user(
         self,
@@ -237,7 +219,7 @@ class MarzbanClient:
             days: Subscription duration in days
             data_limit: Traffic limit in GB
             max_ips: Maximum concurrent IPs (devices) allowed. Defaults to MAX_IPS_PER_CONFIG from config
-            manual_instance_id: Optional instance ID for manual selection
+            manual_instance_id: Optional instance ID for manual selection (ignored)
 
         Returns:
             User object from Marzban API with subscription links
@@ -304,24 +286,17 @@ class MarzbanClient:
 
         Args:
             username: Username to remove
-            instance_id: If known, specify the instance; otherwise tries all instances
+            instance_id: If known, specify the instance (ignored)
         """
-        if instance_id:
-            instances = [inst for inst in await self._get_active_instances() if inst.id == instance_id]
-        else:
-            instances = await self._get_active_instances()
+        instance = self._instance
+        try:
+            api = self._get_or_create_api(instance)
+            await api.remove_user(username)
+            LOG.info(f"Removed user {username} from instance {instance.id}")
+            return
+        except Exception as e:
+            LOG.warning(f"User {username} not found on instance {instance.id}: {e}")
 
-        for instance in instances:
-            try:
-                api = self._get_or_create_api(instance)
-                await api.remove_user(username)
-                LOG.info(f"Removed user {username} from instance {instance.id}")
-                return
-            except Exception as e:
-                LOG.debug(f"User {username} not found on instance {instance.id}: {e}")
-                continue
-
-        LOG.warning(f"User {username} not found on any instance")
 
     async def get_user(self, username: str, instance_id: Optional[str] = None):
         """
@@ -329,25 +304,19 @@ class MarzbanClient:
 
         Args:
             username: Username to fetch
-            instance_id: If known, specify the instance; otherwise tries all instances
+            instance_id: If known, specify the instance (ignored)
 
         Returns:
             User object or None if not found
         """
-        if instance_id:
-            instances = [inst for inst in await self._get_active_instances() if inst.id == instance_id]
-        else:
-            instances = await self._get_active_instances()
+        instance = self._instance
+        try:
+            api = self._get_or_create_api(instance)
+            user = await api.get_user(username)
+            return user
+        except Exception:
+            return None
 
-        for instance in instances:
-            try:
-                api = self._get_or_create_api(instance)
-                user = await api.get_user(username)
-                return user
-            except Exception:
-                continue
-
-        return None
 
     async def modify_user(
         self,
@@ -361,46 +330,40 @@ class MarzbanClient:
 
         Args:
             username: Username to modify
-            instance_id: If known, specify the instance; otherwise tries all instances
+            instance_id: If known, specify the instance (ignored)
             max_ips: Maximum concurrent IPs (devices) allowed
             **kwargs: Parameters to update (expire, data_limit, etc.)
         """
-        if instance_id:
-            instances = [inst for inst in await self._get_active_instances() if inst.id == instance_id]
-        else:
-            instances = await self._get_active_instances()
+        instance = self._instance
+        try:
+            api = self._get_or_create_api(instance)
 
-        for instance in instances:
-            try:
-                api = self._get_or_create_api(instance)
+            # If max_ips is specified, we need to add it to the payload manually
+            if max_ips is not None:
+                from aiomarzban.models import UserModify
+                from aiomarzban.utils import gb_to_bytes
+                from aiomarzban.enums import Methods
 
-                # If max_ips is specified, we need to add it to the payload manually
-                if max_ips is not None:
-                    from aiomarzban.models import UserModify
-                    from aiomarzban.utils import gb_to_bytes
-                    from aiomarzban.enums import Methods
+                # Convert data_limit to bytes if present
+                if 'data_limit' in kwargs and kwargs['data_limit'] is not None:
+                    kwargs['data_limit'] = gb_to_bytes(kwargs['data_limit'])
 
-                    # Convert data_limit to bytes if present
-                    if 'data_limit' in kwargs and kwargs['data_limit'] is not None:
-                        kwargs['data_limit'] = gb_to_bytes(kwargs['data_limit'])
+                # Create UserModify model
+                user_data = UserModify(**kwargs)
 
-                    # Create UserModify model
-                    user_data = UserModify(**kwargs)
+                # Convert to dict and add ip_limit
+                payload = user_data.model_dump(exclude_none=True)
+                payload['ip_limit'] = max_ips
 
-                    # Convert to dict and add ip_limit
-                    payload = user_data.model_dump(exclude_none=True)
-                    payload['ip_limit'] = max_ips
+                # Make request directly
+                await api._request(Methods.PUT, f"/user/{username}", data=payload)
+                LOG.info(f"Modified user {username} on instance {instance.id} (max_ips: {max_ips})")
+            else:
+                # Use standard method if no ip_limit needed
+                await api.modify_user(username, **kwargs)
+                LOG.info(f"Modified user {username} on instance {instance.id}")
 
-                    # Make request directly
-                    await api._request(Methods.PUT, f"/user/{username}", data=payload)
-                    LOG.info(f"Modified user {username} on instance {instance.id} (max_ips: {max_ips})")
-                else:
-                    # Use standard method if no ip_limit needed
-                    await api.modify_user(username, **kwargs)
-                    LOG.info(f"Modified user {username} on instance {instance.id}")
+            return
+        except Exception:
+            raise ValueError(f"User {username} not found on instance {instance.id}")
 
-                return
-            except Exception:
-                continue
-
-        raise ValueError(f"User {username} not found on any instance")

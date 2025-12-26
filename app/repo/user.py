@@ -8,7 +8,7 @@ from urllib.parse import urlparse, urlunparse
 
 from sqlalchemy import select, update, func
 
-from .models import User, Config, Server
+from .models import User, Config
 from .db import get_session
 from .marzban_client import MarzbanClient
 from app.utils.logging import get_logger
@@ -170,14 +170,13 @@ class UserRepository(BaseRepository):
             id=c.id,
             name=c.name,
             vless_link=c.vless_link,
-            server_id=c.server_id,
             username=c.username
         ) for c in result.scalars().all()]
 
         await redis.setex(key, CACHE_TTL_CONFIGS, json.dumps(configs))
         return configs
 
-    async def add_config(self, tg_id: int, vless_link: str, server_id: str, username: str) -> Dict:
+    async def add_config(self, tg_id: int, vless_link: str, username: str) -> Dict:
         redis = await self.get_redis()
 
         result = await self.session.execute(
@@ -190,7 +189,6 @@ class UserRepository(BaseRepository):
             tg_id=tg_id,
             name=new_name,
             vless_link=vless_link,
-            server_id=server_id,
             username=username,
             deleted=False
         )
@@ -209,7 +207,6 @@ class UserRepository(BaseRepository):
             "id": cfg.id,
             "name": cfg.name,
             "vless_link": cfg.vless_link,
-            "server_id": cfg.server_id,
             "username": cfg.username
         }
 
@@ -522,7 +519,6 @@ class UserRepository(BaseRepository):
                 tg_id=tg_id,
                 name=new_name,
                 vless_link=vless_link,
-                server_id=instance_id,
                 username=username,
                 deleted=False
             )
@@ -539,7 +535,6 @@ class UserRepository(BaseRepository):
             "id": cfg.id,
             "name": cfg.name,
             "vless_link": cfg.vless_link,
-            "server_id": cfg.server_id,
             "username": cfg.username
         }
 
