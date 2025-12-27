@@ -3,7 +3,7 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
-from app.keys.admin import admin_servers_kb, admin_clear_configs_confirm_kb
+from app.keys import admin_servers_kb, admin_clear_configs_confirm_kb, Pages, Actions, PageCB
 from app.routers.utils import safe_answer_callback
 from app.utils.config_cleanup import cleanup_expired_configs
 from app.api.client import ClientApiManager
@@ -16,8 +16,8 @@ LOG = get_logger(__name__)
 router = Router()
 
 
-@router.callback_query(F.data == 'admin_servers')
-async def admin_servers(callback: CallbackQuery, t):
+@router.callback_query(PageCB.filter((F.page == Pages.ADMIN_SERVERS) & (F.action == Actions.LIST)))
+async def admin_servers(callback: CallbackQuery, callback_data: PageCB, t):
     """Show server status and management options"""
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
@@ -93,8 +93,8 @@ async def admin_servers(callback: CallbackQuery, t):
     )
 
 
-@router.callback_query(F.data == 'admin_clear_configs')
-async def admin_clear_configs(callback: CallbackQuery, t):
+@router.callback_query(PageCB.filter((F.page == Pages.ADMIN_SERVERS) & (F.action == Actions.DELETE) & (F.datatype == 'configs')))
+async def admin_clear_configs(callback: CallbackQuery, callback_data: PageCB, t):
     """Show confirmation for clearing expired configs"""
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
@@ -109,8 +109,8 @@ async def admin_clear_configs(callback: CallbackQuery, t):
     )
 
 
-@router.callback_query(F.data == 'admin_clear_configs_execute')
-async def admin_clear_configs_execute(callback: CallbackQuery, t):
+@router.callback_query(PageCB.filter((F.page == Pages.ADMIN_SERVERS) & (F.action == Actions.EXECUTE) & (F.datatype == 'clear_configs')))
+async def admin_clear_configs_execute(callback: CallbackQuery, callback_data: PageCB, t):
     """Execute the cleanup of expired configs"""
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
