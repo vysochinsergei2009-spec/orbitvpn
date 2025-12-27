@@ -69,6 +69,33 @@ class MarzneshinPanel(BaseVPNPanel):
         
         return self._convert_to_panel_user(marzneshin_user)
     
+    async def get_users(
+        self,
+        page: Optional[int] = None,
+        size: Optional[int] = None,
+        expired: Optional[bool] = None,
+        limited: Optional[bool] = None,
+        search: Optional[str] = None,
+        owner_username: Optional[str] = None,
+        is_active: Optional[str] = None,
+    ) -> List[PanelUser]:
+        """Получение списка пользователей с фильтрацией"""
+        marzneshin_users = await self.api.get_users(
+            access=self._access_token,
+            page=page,
+            size=size,
+            expired=expired,
+            limited=limited,
+            search=search,
+            owner_username=owner_username,
+            is_active=is_active
+        )
+        
+        if not marzneshin_users:
+            return []
+        
+        return [self._convert_to_panel_user(user) for user in marzneshin_users]
+    
     async def modify_user(
         self, 
         username: str, 
@@ -96,6 +123,22 @@ class MarzneshinPanel(BaseVPNPanel):
         """Удаление пользователя из Marzneshin"""
         return await self.api.remove_user(username, self._access_token)
     
+    async def activate_user(self, username: str) -> bool:
+        """Активация пользователя"""
+        return await self.api.activate_user(username, self._access_token)
+    
+    async def disable_user(self, username: str) -> bool:
+        """Отключение пользователя"""
+        return await self.api.disabled_user(username, self._access_token)
+    
+    async def reset_user(self, username: str) -> bool:
+        """Сброс трафика пользователя"""
+        return await self.api.reset_user(username, self._access_token)
+    
+    async def revoke_user_subscription(self, username: str) -> bool:
+        """Отзыв подписки пользователя (смена subscription URL)"""
+        return await self.api.revoke_user(username, self._access_token)
+    
     async def get_available_services(self) -> List[Dict[str, Any]]:
         """Получение списка services из Marzneshin"""
         services = await self.api.get_services(self._access_token)
@@ -112,6 +155,58 @@ class MarzneshinPanel(BaseVPNPanel):
             }
             for service in services
         ]
+    
+    async def get_admins(self) -> List[Dict[str, Any]]:
+        """Получение списка администраторов"""
+        admins = await self.api.get_admins(self._access_token)
+        
+        if not admins:
+            return []
+        
+        return [
+            {
+                "username": admin.username,
+                "is_sudo": admin.is_sudo,
+                "telegram_id": getattr(admin, 'telegram_id', None),
+                "discord_webhook": getattr(admin, 'discord_webhook', None)
+            }
+            for admin in admins
+        ]
+    
+    async def set_owner(self, username: str, admin_username: str) -> bool:
+        """Установка владельца пользователя"""
+        return await self.api.set_owner(username, admin_username, self._access_token)
+    
+    async def activate_users(self, admin_username: str) -> bool:
+        """Активация всех пользователей администратора"""
+        return await self.api.activate_users(admin_username, self._access_token)
+    
+    async def disable_users(self, admin_username: str) -> bool:
+        """Отключение всех пользователей администратора"""
+        return await self.api.disabled_users(admin_username, self._access_token)
+    
+    async def get_nodes(self) -> List[Dict[str, Any]]:
+        """Получение списка нод"""
+        nodes = await self.api.get_nodes(self._access_token)
+        
+        if not nodes:
+            return []
+        
+        return [
+            {
+                "id": node.id,
+                "name": node.name,
+                "address": node.address,
+                "port": node.port,
+                "status": node.status.value if hasattr(node, 'status') else None,
+                "xray_version": getattr(node, 'xray_version', None)
+            }
+            for node in nodes
+        ]
+    
+    async def restart_node(self, node_id: int) -> bool:
+        """Перезапуск ноды"""
+        return await self.api.restart_node(self._access_token, node_id)
     
     def _convert_to_panel_user(self, marzneshin_user: MarzneshinUserResponse) -> PanelUser:
         """
