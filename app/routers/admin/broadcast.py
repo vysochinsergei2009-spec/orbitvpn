@@ -7,11 +7,14 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from app.keys.admin import (
+from app.keys import (
     admin_panel_kb,
     broadcast_settings_kb,
     broadcast_confirm_kb,
-    broadcast_cancel_kb
+    broadcast_cancel_kb,
+    Pages,
+    Actions,
+    PageCB
 )
 from app.db.db import get_session
 from app.db.user import UserRepository
@@ -29,8 +32,8 @@ class BroadcastState(StatesGroup):
     confirming = State()
 
 
-@router.callback_query(F.data == 'admin_broadcast')
-async def admin_broadcast(callback: CallbackQuery, t, state: FSMContext):
+@router.callback_query(PageCB.filter((F.page == Pages.ADMIN_BROADCAST) & (F.action == Actions.CREATE)))
+async def admin_broadcast(callback: CallbackQuery, callback_data: PageCB, t, state: FSMContext):
     """Start broadcast - request message"""
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
@@ -67,9 +70,9 @@ async def receive_broadcast_message(message: Message, t, state: FSMContext):
     )
 
 
-@router.callback_query(F.data.startswith('broadcast_target_'))
-async def set_broadcast_target(callback: CallbackQuery, t, state: FSMContext):
-    """Set broadcast target audience"""
+@router.callback_query(PageCB.filter((F.page == Pages.ADMIN_BROADCAST) & (F.action == Actions.MODIFY)))
+async def set_broadcast_options(callback: CallbackQuery, callback_data: PageCB, t, state: FSMContext):
+    """Set broadcast target or time"""
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
@@ -77,45 +80,36 @@ async def set_broadcast_target(callback: CallbackQuery, t, state: FSMContext):
         await callback.answer(t('access_denied'), show_alert=True)
         return
 
-    target = callback.data.split('_')[-1]  # 'all' or 'subscribed'
-    await state.update_data(target=target)
-
-    # Update keyboard to show selection
-    data = await state.get_data()
-    current_time = data.get('schedule_time', 'now')
-
-    await callback.message.edit_text(
-        t('broadcast_settings_prompt'),
-        reply_markup=broadcast_settings_kb(t, selected_target=target, selected_time=current_time)
-    )
-
-
-@router.callback_query(F.data.startswith('broadcast_time_'))
-async def set_broadcast_time(callback: CallbackQuery, t, state: FSMContext):
-    """Set broadcast time"""
-    await safe_answer_callback(callback)
-    tg_id = callback.from_user.id
-
-    if tg_id not in ADMIN_TG_IDS:
-        await callback.answer(t('access_denied'), show_alert=True)
-        return
-
-    schedule_time = callback.data.split('_')[-1]  # 'now'
-    await state.update_data(schedule_time=schedule_time)
-
-    # Update keyboard to show selection
-    data = await state.get_data()
-    current_target = data.get('target', 'all')
-
-    await callback.message.edit_text(
-        t('broadcast_settings_prompt'),
-        reply_markup=broadcast_settings_kb(t, selected_target=current_target, selected_time=schedule_time)
-    )
+    datatype = callback_data.datatype
+    
+    # Handle target selection
+    if datatype and datatype.startswith('target_'):
+        target = datatype.split('_')[1]  # 'all' or 'subscribed'
+        await state.update_data(target=target)
+        data = await state.get_data()
+        current_time = data.get('schedule_time', 'now')
+        
+        await callback.message.edit_text(
+            t('broadcast_settings_prompt'),
+            reply_markup=broadcast_settings_kb(t, selected_target=target, selected_time=current_time)
+        )
+    
+    # Handle time selection
+    elif datatype and datatype.startswith('time_'):
+        schedule_time = datatype.split('_')[1]  # 'now'
+        await state.update_data(schedule_time=schedule_time)
+        data = await state.get_data()
+        current_target = data.get('target', 'all')
+        
+        await callback.message.edit_text(
+            t('broadcast_settings_prompt'),
+            reply_markup=broadcast_settings_kb(t, selected_target=current_target, selected_time=schedule_time)
+        )
 
 
-@router.callback_query(F.data == 'broadcast_confirm')
-async def confirm_broadcast(callback: CallbackQuery, t, state: FSMContext):
-    """Confirm and execute broadcast"""
+@router.callback_query(PageCB.filter((F.page == Pages.ADMIN_BROADCAST) & (F.action == Actions.INFO) & (F.datatype == 'confirm')))
+async def confirm_broadcast(callback: CallbackQuery, callback_data: PageCB, t, state: FSMContext):
+    """Show confirmation before executing broadcast"""
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
 
@@ -148,8 +142,8 @@ async def confirm_broadcast(callback: CallbackQuery, t, state: FSMContext):
     )
 
 
-@router.callback_query(F.data == 'broadcast_execute')
-async def execute_broadcast(callback: CallbackQuery, t, state: FSMContext):
+@router.callback_query(PageCB.filter((F.page == Pages.ADMIN_BROADCAST) & (F.action == Actions.EXECUTE)))
+async def execute_broadcast(callback: CallbackQuery, callback_data: PageCB, t, state: FSMContext):
     """Execute the broadcast"""
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
@@ -207,8 +201,8 @@ async def execute_broadcast(callback: CallbackQuery, t, state: FSMContext):
     LOG.info(f"Broadcast completed: {success_count} sent, {failed_count} failed out of {len(users)} total")
 
 
-@router.callback_query(F.data == 'broadcast_cancel')
-async def cancel_broadcast(callback: CallbackQuery, t, state: FSMContext):
+@router.callback_query(PageCB.filter((F.page == Pages.ADMIN_BROADCAST) & (F.action == Actions.CANCEL)))
+async def cancel_broadcast(callback: CallbackQuery, callback_data: PageCB, t, state: FSMContext):
     """Cancel broadcast"""
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
