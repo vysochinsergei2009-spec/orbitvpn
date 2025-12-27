@@ -3,7 +3,6 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 class PanelUser(BaseModel):
-    """Унифицированная модель пользователя (независимо от панели)"""
     username: str
     expire_timestamp: Optional[int] = None
     data_limit: Optional[int] = None
@@ -15,11 +14,10 @@ class PanelUser(BaseModel):
         arbitrary_types_allowed = True
 
 class PanelConfig(BaseModel):
-    """Конфигурация подключения к панели"""
     host: str
     username: str
     password: str
-    panel_type: str  # "marzban", "marzneshin", "3x-ui"
+    panel_type: str
 
 class BaseVPNPanel(ABC):
     """Абстрактный базовый класс для всех VPN панелей"""
