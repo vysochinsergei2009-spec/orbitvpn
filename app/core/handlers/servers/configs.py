@@ -5,7 +5,7 @@ from aiogram.types import CallbackQuery, LinkPreviewOptions, BufferedInputFile
 from sqlalchemy.exc import OperationalError, TimeoutError as SQLTimeoutError
 import qrcode
 
-from app.core.keyboards import actions_kb, sub_kb, qr_delete_kb
+from app.keys.keyboards import actions_kb, sub_kb, qr_delete_kb
 from app.db.db import get_session
 from app.utils.logging import get_logger
 from config import INSTALL_GUIDE_URLS

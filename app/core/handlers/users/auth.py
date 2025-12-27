@@ -3,7 +3,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext # Added
 
-from app.core.keyboards import main_kb, get_referral_keyboard
+from app.keys.keyboards import main_kb, get_referral_keyboard
 from app.db.db import get_session
 from config import FREE_TRIAL_DAYS
 from ..utils import safe_answer_callback, get_repositories, extract_referrer_id

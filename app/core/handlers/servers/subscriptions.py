@@ -1,7 +1,7 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
-from app.core.keyboards import sub_kb, myvpn_kb
+from app.keys.keyboards import sub_kb, myvpn_kb
 from app.db.db import get_session
 from app.utils.logging import get_logger
 from config import PLANS

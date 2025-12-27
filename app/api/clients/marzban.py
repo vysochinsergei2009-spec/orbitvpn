@@ -157,5 +157,5 @@ class MarzbanApiManager(ApiRequest):
             return None
         return [MarzbanNodeResponse(**node) for node in nodes]
 
-    async def restart_node(self, access: str, nodeid: int) -> bool:.
+    async def restart_node(self, access: str, nodeid: int) -> bool:
         return await self.post(endpoint=f"/api/node/{nodeid}/reconnect", access=access)

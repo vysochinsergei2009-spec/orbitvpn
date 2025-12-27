@@ -7,7 +7,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery, PreCheckoutQuery, ContentType, InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy.exc import OperationalError, TimeoutError as SQLTimeoutError
 
-from app.core.keyboards import (
+from app.keys.keyboards import (
     balance_kb,
     get_payment_methods_keyboard,
     get_payment_amounts_keyboard,

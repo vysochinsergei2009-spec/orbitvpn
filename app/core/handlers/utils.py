@@ -56,7 +56,7 @@ async def update_configs_view(
     tg_id: int,
     custom_text: Optional[str] = None
 ):
-    from app.core.keyboards import myvpn_kb
+    from app.keys.keyboards import myvpn_kb
 
     configs = await user_repo.get_configs(tg_id)
     has_active_sub = await user_repo.has_active_subscription(tg_id)

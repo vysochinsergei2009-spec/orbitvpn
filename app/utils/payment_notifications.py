@@ -7,7 +7,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 
 from app.locales.locales import get_translator
-from app.core.keyboards import payment_success_actions
+from app.keys.keyboards import payment_success_actions
 
 LOG = logging.getLogger(__name__)
 
