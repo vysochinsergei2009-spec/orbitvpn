@@ -10,12 +10,14 @@ from sqlalchemy import select, update, func
 
 from .models import User, Config
 from .db import get_session
-from app.api import ClientApiManager
+from app.api.base import PanelConfig
+from app.api.manager import PanelFactory
 from app.models.server import Server, ServerTypes
 from config import (
-    MARZBAN_BASE_URL,
-    MARZBAN_USERNAME,
-    MARZBAN_PASSWORD,
+    VPN_PANEL_TYPE,
+    PANEL_HOST,
+    PANEL_USERNAME,
+    PANEL_PASSWORD,
     MAX_IPS_PER_CONFIG,
     REFERRAL_BONUS,
     REDIS_TTL,
@@ -37,6 +39,27 @@ class UserRepository(BaseRepository):
     @staticmethod
     def _validate_username(username: str) -> bool:
         return bool(re.match(r'^orbit_\d+$', username))
+
+    async def _get_panel(self):
+        """
+        Получить экземпляр панели через фабрику.
+        Динамически выбирает панель на основе VPN_PANEL_TYPE.
+        """
+        panel_config = PanelConfig(
+            host=PANEL_HOST,
+            username=PANEL_USERNAME,
+            password=PANEL_PASSWORD,
+            panel_type=VPN_PANEL_TYPE
+        )
+        
+        panel = PanelFactory.create_panel(panel_config)
+        
+        # Аутентификация
+        auth_success = await panel.authenticate()
+        if not auth_success:
+            raise ValueError(f"Failed to authenticate with {VPN_PANEL_TYPE} panel")
+        
+        return panel
 
     # ----------------------------
     # Balance
@@ -219,66 +242,33 @@ class UserRepository(BaseRepository):
             "username": cfg.username
         }
 
-    async def _get_marzban_server(self) -> Server:
-        # In the future, this can be fetched from a database of servers
-        server = Server(
-            id="default_marzban",
-            name="Default Marzban",
-            types=ServerTypes.MARZBAN,
-            data={
-                "host": MARZBAN_BASE_URL,
-                "username": MARZBAN_USERNAME,
-                "password": MARZBAN_PASSWORD,
-            },
-        )
-        # This is a simplified way to get the token.
-        # In a real multi-server environment, tokens should be cached.
-        from app.api.clients.marzban import MarzbanApiManager
-        api = MarzbanApiManager(host=server.data["host"])
-        token = await api.get_token(
-            username=server.data["username"], password=server.data["password"]
-        )
-        server.access = token.access_token if token else None
-        return server
-
     # ----------------------------
-    # Marzban safe wrappers
+    # Panel safe wrappers (updated to use Factory)
     # ----------------------------
-    async def _safe_remove_marzban_user(self, username: str):
+    async def _safe_remove_panel_user(self, username: str):
+        """Удалить пользователя через панель"""
         try:
-            server = await self._get_marzban_server()
-            if not server.access:
-                LOG.error("Failed to get access token for Marzban server.")
-                return
-
-            api_manager = ClientApiManager()
-            await api_manager.remove_user(server, username)
-            LOG.info("Removed marzban user %s", username)
+            panel = await self._get_panel()
+            await panel.delete_user(username)
+            LOG.info("Removed panel user %s", username)
         except Exception as e:
-            LOG.warning("Failed to remove marzban user %s: %s", username, e)
+            LOG.warning("Failed to remove panel user %s: %s", username, e)
             try:
                 # Fallback to expire
-                server = await self._get_marzban_server()
-                if not server.access:
-                    LOG.error("Failed to get access token for Marzban server for fallback.")
-                    return
-                api_manager = ClientApiManager()
-                await api_manager.modify_user(server, username, {"expire": int(time.time() - 86400)})
-                LOG.info("Expired marzban user %s as fallback", username)
+                panel = await self._get_panel()
+                await panel.modify_user(username, expire_timestamp=int(time.time() - 86400))
+                LOG.info("Expired panel user %s as fallback", username)
             except Exception as ex:
-                LOG.error("Failed to expire marzban user %s during fallback: %s", username, ex)
+                LOG.error("Failed to expire panel user %s during fallback: %s", username, ex)
 
-    async def _safe_modify_marzban_user(self, username: str, expire_ts: int):
+    async def _safe_modify_panel_user(self, username: str, expire_ts: int):
+        """Изменить expire пользователя через панель"""
         try:
-            server = await self._get_marzban_server()
-            if not server.access:
-                LOG.error("Failed to get access token for Marzban server.")
-                return
-            api_manager = ClientApiManager()
-            await api_manager.modify_user(server, username, {"expire": expire_ts})
-            LOG.info("Modified marzban user %s expire=%s", username, expire_ts)
+            panel = await self._get_panel()
+            await panel.modify_user(username, expire_timestamp=expire_ts)
+            LOG.info("Modified panel user %s expire=%s", username, expire_ts)
         except Exception as e:
-            LOG.error("Failed to modify marzban user %s expire=%s: %s", username, expire_ts, e)
+            LOG.error("Failed to modify panel user %s expire=%s: %s", username, expire_ts, e)
 
     # ----------------------------
     # Delete config (clean delete)
@@ -303,7 +293,7 @@ class UserRepository(BaseRepository):
         await self.session.commit()
 
         if username:
-            await self._safe_remove_marzban_user(username)
+            await self._safe_remove_panel_user(username)
 
         await redis.delete(f"user:{tg_id}:configs")
 
@@ -410,7 +400,7 @@ class UserRepository(BaseRepository):
         if usernames:
             import asyncio
             await asyncio.gather(*[
-                self._safe_modify_marzban_user(username, int(timestamp))
+                self._safe_modify_panel_user(username, int(timestamp))
                 for username in usernames
             ], return_exceptions=True)
 
@@ -467,7 +457,7 @@ class UserRepository(BaseRepository):
         if usernames:
             import asyncio
             await asyncio.gather(*[
-                self._safe_modify_marzban_user(username, int(new_end_ts))
+                self._safe_modify_panel_user(username, int(new_end_ts))
                 for username in usernames
             ], return_exceptions=True)
 
@@ -479,7 +469,10 @@ class UserRepository(BaseRepository):
         tg_id: int,
         manual_instance_id: Optional[str] = None # This is now ignored
     ) -> Dict:
-
+        """
+        Создать конфигурацию через выбранную панель (Marzban/Marzneshin).
+        Обновлено: использует PanelFactory вместо хардкода Marzban.
+        """
         redis = await self.get_redis()
         username = f'orbit_{tg_id}'
 
@@ -506,42 +499,49 @@ class UserRepository(BaseRepository):
 
             days_remaining = max(1, int((user.subscription_end.timestamp() - time.time()) / 86400) + 1)
 
-        server = await self._get_marzban_server()
-        if not server.access:
-            raise ValueError("Could not authenticate with Marzban server")
+        # Получаем панель через фабрику
+        panel = await self._get_panel()
 
-        api_manager = ClientApiManager()
-
-        user_data = {
-            "username": username,
-            "expire": int(time.time() + days_remaining * 86400),
-            "data_limit": 300 * 1024 * 1024 * 1024, # 300 GB
-            "data_limit_reset_strategy": "month",
-            "ip_limit": MAX_IPS_PER_CONFIG,
-            "proxies": {"vless": {"flow": ""}},
-        }
+        # Получаем inbounds/services для Marzban
+        # Для Marzneshin proxies не используются, но передаём пустой dict
+        proxies = {"vless": {"flow": ""}} if VPN_PANEL_TYPE == "marzban" else {}
 
         try:
-            new_user = await api_manager.create_user(server, user_data)
-            if not new_user or not new_user.links:
-                raise ValueError("No VLESS link returned from Marzban")
-            vless_link = new_user.links[0]
+            panel_user = await panel.create_user(
+                username=username,
+                expire_timestamp=int(time.time() + days_remaining * 86400),
+                data_limit=300 * 1024 * 1024 * 1024,  # 300 GB
+                proxies=proxies
+            )
+            
+            if not panel_user or not panel_user.subscription_url:
+                raise ValueError("No subscription URL returned from panel")
+            
+            vless_link = panel_user.subscription_url
 
         except Exception as e:
             error_str = str(e).lower()
             if "already exists" in error_str or "409" in error_str:
-                LOG.warning("Marzban user %s already exists; attempting remove+recreate", username)
-                await api_manager.remove_user(server, username)
-                new_user = await api_manager.create_user(server, user_data)
-                if not new_user or not new_user.links:
-                    raise ValueError("No VLESS link after recreate")
-                vless_link = new_user.links[0]
+                LOG.warning("Panel user %s already exists; attempting remove+recreate", username)
+                await panel.delete_user(username)
+                panel_user = await panel.create_user(
+                    username=username,
+                    expire_timestamp=int(time.time() + days_remaining * 86400),
+                    data_limit=300 * 1024 * 1024 * 1024,
+                    proxies=proxies
+                )
+                if not panel_user or not panel_user.subscription_url:
+                    raise ValueError("No subscription URL after recreate")
+                vless_link = panel_user.subscription_url
             else:
-                LOG.error("Marzban add_user failed for %s: %s", username, e)
+                LOG.error("Panel create_user failed for %s: %s", username, e)
                 raise
 
-        parsed = urlparse(vless_link)
-        vless_link = urlunparse(parsed._replace(fragment="OrbitVPN"))
+        # Убедимся, что fragment уже есть (он добавляется в адаптерах)
+        # Но можно перепроверить
+        if "#OrbitVPN" not in vless_link:
+            parsed = urlparse(vless_link)
+            vless_link = urlunparse(parsed._replace(fragment="OrbitVPN"))
 
         async with get_session() as session:
             result = await session.execute(
@@ -549,7 +549,7 @@ class UserRepository(BaseRepository):
             )
             user = result.scalar_one_or_none()
             if not user or not user.subscription_end or time.time() >= user.subscription_end.timestamp():
-                await api_manager.remove_user(server, username)
+                await panel.delete_user(username)
                 raise ValueError("Subscription expired during config creation")
 
             result = await session.execute(
@@ -557,7 +557,7 @@ class UserRepository(BaseRepository):
             )
             count = result.scalar()
             if count >= 1:
-                await api_manager.remove_user(server, username)
+                await panel.delete_user(username)
                 raise ValueError("Max configs reached during creation")
 
             new_name = f"Configuration {count + 1}"
@@ -576,7 +576,7 @@ class UserRepository(BaseRepository):
 
         await redis.delete(f"user:{tg_id}:configs")
 
-        LOG.info("Config created for user %s on Marzban server %s", tg_id, server.name)
+        LOG.info("Config created for user %s on %s panel", tg_id, VPN_PANEL_TYPE)
         return {
             "id": cfg.id,
             "name": cfg.name,
