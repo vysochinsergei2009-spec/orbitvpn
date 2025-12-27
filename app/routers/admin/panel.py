@@ -3,15 +3,15 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
-from app.keys.admin import admin_panel_kb
+from app.keys import admin_panel_kb, Pages, Actions, PageCB
 from app.routers.utils import safe_answer_callback
 from config import ADMIN_TG_IDS
 
 router = Router()
 
 
-@router.callback_query(F.data == 'admin_panel')
-async def show_admin_panel(callback: CallbackQuery, t):
+@router.callback_query(PageCB.filter(F.page == Pages.ADMIN_PANEL))
+async def show_admin_panel(callback: CallbackQuery, callback_data: PageCB, t):
     """Show admin panel - only accessible to admin"""
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
@@ -27,8 +27,8 @@ async def show_admin_panel(callback: CallbackQuery, t):
     )
 
 
-@router.callback_query(F.data == 'admin_stats')
-async def admin_stats(callback: CallbackQuery, t):
+@router.callback_query(PageCB.filter((F.page == Pages.ADMIN_STATS) & (F.action == Actions.INFO)))
+async def admin_stats(callback: CallbackQuery, callback_data: PageCB, t):
     """Show bot statistics"""
     await safe_answer_callback(callback)
     tg_id = callback.from_user.id
