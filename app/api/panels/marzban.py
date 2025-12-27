@@ -3,7 +3,7 @@ from urllib.parse import urlparse, urlunparse
 
 from app.api.base import BaseVPNPanel, PanelUser, PanelConfig
 from app.api.clients.marzban import MarzbanApiManager
-from app.api.types.marzban import MarzbanUserResponse
+from app.api.types.marzban import MarzbanUserResponse, MarzbanUserStatus
 
 
 class MarzbanPanel(BaseVPNPanel):
@@ -60,6 +60,37 @@ class MarzbanPanel(BaseVPNPanel):
         
         return self._convert_to_panel_user(marzban_user)
     
+    async def get_users(
+        self,
+        offset: Optional[int] = None,
+        limit: Optional[int] = None,
+        status: Optional[str] = None,
+        search: Optional[str] = None,
+        owner_username: Optional[str] = None,
+    ) -> List[PanelUser]:
+        """Получение списка пользователей с фильтрацией"""
+        # Конвертируем status в MarzbanUserStatus
+        marzban_status = None
+        if status:
+            try:
+                marzban_status = MarzbanUserStatus(status)
+            except ValueError:
+                pass
+        
+        marzban_users = await self.api.get_users(
+            access=self._access_token,
+            offset=offset,
+            limit=limit,
+            status=marzban_status,
+            search=search,
+            owner_username=owner_username
+        )
+        
+        if not marzban_users:
+            return []
+        
+        return [self._convert_to_panel_user(user) for user in marzban_users]
+    
     async def modify_user(
         self, 
         username: str, 
@@ -86,6 +117,22 @@ class MarzbanPanel(BaseVPNPanel):
         """Удаление пользователя из Marzban"""
         return await self.api.remove_user(username, self._access_token)
     
+    async def activate_user(self, username: str) -> bool:
+        """Активация пользователя"""
+        return await self.api.activate_user(username, self._access_token)
+    
+    async def disable_user(self, username: str) -> bool:
+        """Отключение пользователя"""
+        return await self.api.disabled_user(username, self._access_token)
+    
+    async def reset_user(self, username: str) -> bool:
+        """Сброс трафика пользователя"""
+        return await self.api.reset_user(username, self._access_token)
+    
+    async def revoke_user_subscription(self, username: str) -> bool:
+        """Отзыв подписки пользователя (смена subscription URL)"""
+        return await self.api.revoke_user(username, self._access_token)
+    
     async def get_available_services(self) -> List[Dict[str, Any]]:
         """Получение списка inbounds из Marzban"""
         inbounds = await self.api.get_inbounds(self._access_token)
@@ -102,6 +149,58 @@ class MarzbanPanel(BaseVPNPanel):
             }
             for inbound in inbounds
         ]
+    
+    async def get_admins(self) -> List[Dict[str, Any]]:
+        """Получение списка администраторов"""
+        admins = await self.api.get_admins(self._access_token)
+        
+        if not admins:
+            return []
+        
+        return [
+            {
+                "username": admin.username,
+                "is_sudo": admin.is_sudo,
+                "telegram_id": getattr(admin, 'telegram_id', None),
+                "discord_webhook": getattr(admin, 'discord_webhook', None)
+            }
+            for admin in admins
+        ]
+    
+    async def set_owner(self, username: str, admin_username: str) -> bool:
+        """Установка владельца пользователя"""
+        return await self.api.set_owner(username, admin_username, self._access_token)
+    
+    async def activate_users(self, admin_username: str) -> bool:
+        """Активация всех пользователей администратора"""
+        return await self.api.activate_users(admin_username, self._access_token)
+    
+    async def disable_users(self, admin_username: str) -> bool:
+        """Отключение всех пользователей администратора"""
+        return await self.api.disabled_users(admin_username, self._access_token)
+    
+    async def get_nodes(self) -> List[Dict[str, Any]]:
+        """Получение списка нод"""
+        nodes = await self.api.get_nodes(self._access_token)
+        
+        if not nodes:
+            return []
+        
+        return [
+            {
+                "id": node.id,
+                "name": node.name,
+                "address": node.address,
+                "port": node.port,
+                "status": node.status.value if hasattr(node, 'status') else None,
+                "xray_version": getattr(node, 'xray_version', None)
+            }
+            for node in nodes
+        ]
+    
+    async def restart_node(self, node_id: int) -> bool:
+        """Перезапуск ноды"""
+        return await self.api.restart_node(self._access_token, node_id)
     
     def _convert_to_panel_user(self, marzban_user: MarzbanUserResponse) -> PanelUser:
         """
