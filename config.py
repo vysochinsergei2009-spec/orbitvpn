@@ -96,10 +96,19 @@ REDIS_TTL: Final[int] = 300  # Cache TTL in seconds (5 minutes)
 # --- Server Configuration ---
 PORT: Final[int] = _get_env_int("PORT", 5000)
 
-# --- Marzban VPN Panel Configuration ---
+# --- VPN Panel Configuration (Unified) ---
+# Обновлено: добавлена поддержка динамического выбора панели
+VPN_PANEL_TYPE: Final[str] = os.getenv("VPN_PANEL_TYPE", "marzban").lower()  # "marzban" or "marzneshin"
+
+# Для обратной совместимости сохранены старые переменные
 MARZBAN_USERNAME: Final[str] = _get_required_env("MARZBAN_USERNAME")
 MARZBAN_PASSWORD: Final[str] = _get_required_env("MARZBAN_PASSWORD")
 MARZBAN_BASE_URL: Final[str] = os.getenv("MARZBAN_BASE_URL", "https://s001.orbitcorp.space:8000/")
+
+# Новые универсальные переменные (поддерживают обратную совместимость)
+PANEL_HOST: Final[str] = os.getenv("PANEL_HOST") or MARZBAN_BASE_URL
+PANEL_USERNAME: Final[str] = os.getenv("PANEL_USERNAME") or MARZBAN_USERNAME
+PANEL_PASSWORD: Final[str] = os.getenv("PANEL_PASSWORD") or MARZBAN_PASSWORD
 
 # Note: To add multiple Marzban instances, insert them into marzban_instances table:
 # INSERT INTO marzban_instances (id, name, base_url, username, password, is_active, priority)
