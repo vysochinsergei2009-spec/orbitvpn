@@ -9,7 +9,7 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from app.db.db import get_session
 from app.db.models import User
 from app.utils.redis import get_redis
-from app.locales.locales import get_translator
+from app.settings.locales import get_translator
 from app.keys.keyboards import balance_button_kb, get_renewal_notification_keyboard
 
 LOG = logging.getLogger(__name__)
