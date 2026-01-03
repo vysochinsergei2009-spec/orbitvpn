@@ -147,7 +147,6 @@ LOCALES = {
         'admin_payments_placeholder': '💰 Статистика платежей\n\n[В разработке]\n\nЗдесь будет:\n- Последние платежи\n- Статистика по методам оплаты\n- Неудачные платежи\n- Общий доход',
         'admin_servers_placeholder': '🖥 Статус серверов\n\n[В разработке]\n\nЗдесь будет:\n- Список Marzban серверов\n- Загрузка серверов\n- Активные конфигурации\n- Управление серверами',
         'admin_broadcast_placeholder': '📢 Рассылка сообщений\n\n[В разработке]\n\nЗдесь будет:\n- Отправка сообщений всем пользователям\n- Отправка определённым группам\n- Статистика доставки',
-        # Notifications settings
         'notifications': 'Уведомления',
         'notifications_enabled': 'Включены 🟢',
         'notifications_disabled': 'Выключены 🔴',
@@ -166,14 +165,12 @@ LOCALES = {
         'sub_expired_2': 'Подписка закончилась. Все ваши конфигурации приостановлены.\n\nОбновите подписку прямо сейчас для продолжения использования VPN.',
         'sub_expired_3': 'Срок действия вашей подписки истёк.\n\nПродлите подписку, чтобы снова пользоваться безопасным и быстрым VPN без ограничений!',
         'auto_renewal_success': '✓ Подписка автоматически продлена!\n\n📅 +{days} дней за {price:.0f}₽\n💰 Баланс: {balance:.2f}₽\n⏰ Активна до: {expire_date}',
-        # Admin config cleanup
         'admin_clear_configs': 'Очистить конфиги',
         'admin_clear_configs_confirm': '🗑 Очистка истекших конфигов\n\nУдалит все конфиги пользователей, чья подписка истекла более 14 дней назад.\n\nВы уверены?',
         'admin_cleanup_started': '⏳ Запущена очистка истекших конфигов...',
         'admin_cleanup_result': '✅ Очистка завершена\n\nПроверено: {total}\nУдалено: {deleted}\nОшибок: {failed}\nПропущено: {skipped}',
         'confirm_yes': 'Да, удалить',
         'confirm_no': 'Отмена',
-        # Broadcast
         'broadcast_enter_message': '📢 Рассылка сообщений\n\nВведите текст сообщения, которое хотите разослать пользователям:',
         'broadcast_settings_prompt': '⚙️ Настройки рассылки\n\nВыберите кому и когда отправить сообщение:',
         'broadcast_target_all': 'Всем пользователям',
@@ -187,7 +184,6 @@ LOCALES = {
         'broadcast_cancelled': '❌ Рассылка отменена',
         'broadcast_error_no_message': '❌ Сообщение не найдено. Попробуйте ещё раз.',
         'cancel': 'Отмена',
-        # Admin Users Management
         'admin_users_stats': '👥 Статистика пользователей\n\nВсего: {total}\nС активной подпиской: {active_sub}\nБез подписки: {no_sub}\nНовых за 24ч: {new_24h}\n\nСредний баланс: {avg_balance:.2f} RUB',
         'admin_search_user': 'Поиск',
         'admin_user_list': 'Список',
@@ -214,13 +210,11 @@ LOCALES = {
         'admin_page': 'Страница {page}/{total}',
         'admin_next_page': 'Далее →',
         'admin_prev_page': '← Назад',
-        # Admin Payments Statistics
         'admin_payments_stats': '💰 Статистика платежей\n\nВсего платежей: {total}\nУспешных: {confirmed}\nВ ожидании: {pending}\nОтменено/Истекло: {failed}\n\nОбщий доход: {total_revenue:.2f} RUB\nЗа сегодня: {today_revenue:.2f} RUB\nЗа неделю: {week_revenue:.2f} RUB\nЗа месяц: {month_revenue:.2f} RUB',
         'admin_payment_methods': '\n\nПо методам:\n{methods_stats}',
         'admin_recent_payments': 'Последние платежи',
         'admin_payment_item': '• {amount} RUB через {method}\n  Пользователь: {tg_id}\n  Статус: {status}\n  Дата: {date}',
         'admin_no_recent_payments': 'Нет недавних платежей',
-        # Admin Servers Status
         'admin_servers_stats': '🖥 Статус серверов Marzban\n\nИнстансов: {total}\nАктивных: {active}\nНеактивных: {inactive}',
         'admin_instance_item': '\n\n📡 {name} ({id})\nURL: {url}\nПриоритет: {priority}\nСтатус: {status}\nУзлов: {nodes}\nИсключено узлов: {excluded}',
         'admin_instance_active': '✅ Активен',
@@ -231,9 +225,7 @@ LOCALES = {
         'admin_no_nodes': 'Нет доступных узлов',
         'admin_node_online': '🟢 Онлайн',
         'admin_node_offline': '🔴 Оффлайн',
-        # Admin Bot Statistics
         'admin_bot_stats': '📊 Общая статистика бота\n\n👥 Пользователи:\nВсего: {total_users}\nНовых за 24ч: {new_users_24h}\nНовых за 7д: {new_users_7d}\nНовых за 30д: {new_users_30d}\n\n📅 Подписки:\nАктивных: {active_subs}\nИстекших: {expired_subs}\nНе покупали: {no_subs}\n\n💰 Доходы:\nВсего: {total_revenue:.2f} RUB\nЗа сегодня: {today_revenue:.2f} RUB\nЗа неделю: {week_revenue:.2f} RUB\nЗа месяц: {month_revenue:.2f} RUB\n\n🔧 Конфигурации:\nВсего: {total_configs}\nАктивных: {active_configs}\nУдаленных: {deleted_configs}',
-        # Promocodes
         'activate_promocode': 'Активировать промокод',
         'enter_promocode': 'Введите промокод:',
         'promocode_activated_success': '✅ Промокод активирован!\n\nПри следующем пополнении вы получите {bonus}',
@@ -395,7 +387,6 @@ LOCALES = {
         'admin_payments_placeholder': '💰 Payment Statistics\n\n[Under development]\n\nWill include:\n- Recent payments\n- Statistics by payment method\n- Failed payments\n- Total revenue',
         'admin_servers_placeholder': '🖥 Server Status\n\n[Under development]\n\nWill include:\n- Marzban server list\n- Server load\n- Active configurations\n- Server management',
         'admin_broadcast_placeholder': '📢 Message Broadcast\n\n[Under development]\n\nWill include:\n- Send messages to all users\n- Send to specific groups\n- Delivery statistics',
-        # Notifications settings
         'notifications': 'Notifications',
         'notifications_enabled': 'Enabled 🟢',
         'notifications_disabled': 'Disabled 🔴',
@@ -414,14 +405,12 @@ LOCALES = {
         'sub_expired_2': 'Subscription ended. All your configurations have been suspended.\n\nRenew your subscription now to continue using VPN.',
         'sub_expired_3': 'Your subscription has expired.\n\nRenew now to enjoy safe and fast VPN without limitations again!',
         'auto_renewal_success': '✓ Subscription auto-renewed!\n\n📅 +{days} days for {price:.0f}₽\n💰 Balance: {balance:.2f}₽\n⏰ Active until: {expire_date}',
-        # Admin config cleanup
         'admin_clear_configs': 'Clear Configs',
         'admin_clear_configs_confirm': '🗑 Clean up expired configs\n\nWill delete all configs for users whose subscription expired more than 14 days ago.\n\nAre you sure?',
         'admin_cleanup_started': '⏳ Expired config cleanup started...',
         'admin_cleanup_result': '✅ Cleanup completed\n\nChecked: {total}\nDeleted: {deleted}\nFailed: {failed}\nSkipped: {skipped}',
         'confirm_yes': 'Yes, delete',
         'confirm_no': 'Cancel',
-        # Broadcast
         'broadcast_enter_message': '📢 Message Broadcast\n\nEnter the message text you want to send to users:',
         'broadcast_settings_prompt': '⚙️ Broadcast Settings\n\nChoose who and when to send the message:',
         'broadcast_target_all': 'All users',
@@ -435,7 +424,6 @@ LOCALES = {
         'broadcast_cancelled': '❌ Broadcast cancelled',
         'broadcast_error_no_message': '❌ Message not found. Please try again.',
         'cancel': 'Cancel',
-        # Admin Users Management
         'admin_users_stats': '👥 User Statistics\n\nTotal: {total}\nWith active subscription: {active_sub}\nNo subscription: {no_sub}\nNew in 24h: {new_24h}\n\nAverage balance: {avg_balance:.2f} RUB',
         'admin_search_user': 'Search',
         'admin_user_list': 'List',
@@ -462,13 +450,11 @@ LOCALES = {
         'admin_page': 'Page {page}/{total}',
         'admin_next_page': 'Next →',
         'admin_prev_page': '← Back',
-        # Admin Payments Statistics
         'admin_payments_stats': '💰 Payment Statistics\n\nTotal payments: {total}\nConfirmed: {confirmed}\nPending: {pending}\nCancelled/Expired: {failed}\n\nTotal revenue: {total_revenue:.2f} RUB\nToday: {today_revenue:.2f} RUB\nThis week: {week_revenue:.2f} RUB\nThis month: {month_revenue:.2f} RUB',
         'admin_payment_methods': '\n\nBy method:\n{methods_stats}',
         'admin_recent_payments': 'Recent payments',
         'admin_payment_item': '• {amount} RUB via {method}\n  User: {tg_id}\n  Status: {status}\n  Date: {date}',
         'admin_no_recent_payments': 'No recent payments',
-        # Admin Servers Status
         'admin_servers_stats': '🖥 Marzban Server Status\n\nInstances: {total}\nActive: {active}\nInactive: {inactive}',
         'admin_instance_item': '\n\n📡 {name} ({id})\nURL: {url}\nPriority: {priority}\nStatus: {status}\nNodes: {nodes}\nExcluded nodes: {excluded}',
         'admin_instance_active': '✅ Active',
@@ -479,9 +465,7 @@ LOCALES = {
         'admin_no_nodes': 'No available nodes',
         'admin_node_online': '🟢 Online',
         'admin_node_offline': '🔴 Offline',
-        # Admin Bot Statistics
         'admin_bot_stats': '📊 Bot Statistics\n\n👥 Users:\nTotal: {total_users}\nNew in 24h: {new_users_24h}\nNew in 7d: {new_users_7d}\nNew in 30d: {new_users_30d}\n\n📅 Subscriptions:\nActive: {active_subs}\nExpired: {expired_subs}\nNever purchased: {no_subs}\n\n💰 Revenue:\nTotal: {total_revenue:.2f} RUB\nToday: {today_revenue:.2f} RUB\nThis week: {week_revenue:.2f} RUB\nThis month: {month_revenue:.2f} RUB\n\n🔧 Configurations:\nTotal: {total_configs}\nActive: {active_configs}\nDeleted: {deleted_configs}',
-        # Promocodes
         'activate_promocode': 'Activate Promocode',
         'enter_promocode': 'Enter promocode:',
         'promocode_activated_success': '✅ Promocode activated!\n\nOn your next deposit you will get {bonus}',

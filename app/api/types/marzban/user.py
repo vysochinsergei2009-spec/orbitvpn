@@ -27,8 +27,7 @@ class MarzbanUserResponse(BaseModel):
     proxies: Optional[Dict[str, dict]] = {}
     expire: Optional[int] = None
     data_limit: Optional[int] = None
-    data_limit_reset_strategy: MarzbanUserDataUsageResetStrategy =
-        MarzbanUserDataUsageResetStrategy.no_reset
+    data_limit_reset_strategy: MarzbanUserDataUsageResetStrategy = MarzbanUserDataUsageResetStrategy.no_reset
     inbounds: Optional[Dict[str, List[str]]] = None
     note: Optional[str] = None
     sub_updated_at: Optional[str] = None

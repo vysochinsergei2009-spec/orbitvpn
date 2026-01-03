@@ -96,18 +96,7 @@ class UserRepository(BaseRepository):
         return balance
 
     async def change_balance(self, tg_id: int, amount: Decimal) -> Decimal:
-        """
-        Change user balance atomically with SELECT FOR UPDATE lock.
 
-        CRITICAL: This method now uses row-level locking to prevent lost updates
-        from concurrent balance modifications (race conditions).
-
-        Returns:
-            New balance after change
-
-        Raises:
-            ValueError: If user not found or insufficient balance
-        """
         redis = await self.get_redis()
 
         # CRITICAL FIX: Lock user row BEFORE reading balance

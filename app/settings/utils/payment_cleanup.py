@@ -22,12 +22,10 @@ class PaymentCleanupTask:
                 redis_client = await get_redis()
                 payment_repo = PaymentRepository(session, redis_client)
 
-                # Mark expired pending payments
                 expired_count = await payment_repo.expire_old_payments()
                 if expired_count > 0:
                     LOG.info(f"Marked {expired_count} payments as expired")
 
-                # Clean up old expired/cancelled payments
                 deleted_count = await payment_repo.cleanup_old_payments(days=self.cleanup_days)
                 if deleted_count > 0:
                     LOG.info(f"Cleaned up {deleted_count} old expired/cancelled payments")
@@ -46,7 +44,6 @@ class PaymentCleanupTask:
             except Exception as e:
                 LOG.error(f"Error in payment cleanup loop: {type(e).__name__}: {e}")
 
-            # Wait for next check
             await asyncio.sleep(self.check_interval)
 
         LOG.info("Payment cleanup task stopped")

@@ -31,7 +31,6 @@ class YooKassaGateway(BasePaymentGateway):
     async def _ensure_configured(self):
         """Configure YooKassa SDK with credentials based on test/production mode"""
         if not self._configured:
-            # Select credentials based on testnet mode
             if YOOKASSA_TESTNET:
                 shop_id = YOOKASSA_TEST_SHOP_ID
                 secret_key = YOOKASSA_TEST_SECRET_KEY
@@ -54,7 +53,6 @@ class YooKassaGateway(BasePaymentGateway):
                     )
 
             await asyncio.to_thread(Configuration.configure, shop_id, secret_key)
-            # Set timeout: 10s connect, 20s read (total 30s max)
             Configuration.timeout = 30
             self._configured = True
             LOG.info(f"YooKassa configured successfully in {mode} mode (shop_id: {shop_id}, timeout=30s)")
@@ -75,13 +73,11 @@ class YooKassaGateway(BasePaymentGateway):
         try:
             await self._ensure_configured()
 
-            # Get bot username for return URL
             from config import bot
             bot_info = await bot.get_me()
             bot_username = bot_info.username
             return_url = f"https://t.me/{bot_username}"
 
-            # Create payment via YooKassa API
             payment_data = {
                 "amount": {
                     "value": str(amount),
@@ -119,20 +115,19 @@ class YooKassaGateway(BasePaymentGateway):
 
             LOG.info(f"Creating YooKassa payment for user {tg_id}, amount={amount}, payment_id={payment_id}")
             
-            # Retry logic with exponential backoff
             max_retries = 3
             last_error = None
             
             for attempt in range(max_retries):
                 try:
                     if attempt > 0:
-                        wait_time = 2 ** attempt  # Exponential backoff: 2s, 4s
+                        wait_time = 2 ** attempt
                         LOG.warning(f"YooKassa API retry attempt {attempt + 1}/{max_retries} for payment {payment_id}, "
                                   f"waiting {wait_time}s before retry...")
                         await asyncio.sleep(wait_time)
                     
                     yookassa_payment = await asyncio.to_thread(YooKassaPayment.create, payment_data)
-                    break  # Success, exit retry loop
+                    break
                     
                 except (ConnectTimeoutError, ReadTimeoutError, Urllib3TimeoutError,
                         ConnectTimeout, ReadTimeout, RequestsTimeout,
@@ -143,25 +138,20 @@ class YooKassaGateway(BasePaymentGateway):
                               f"{error_type}: {timeout_err}")
                     
                     if attempt == max_retries - 1:
-                        # Last attempt failed
                         LOG.error(f"YooKassa API timeout after {max_retries} attempts for payment {payment_id}")
                         raise ValueError(f"YooKassa API timeout after {max_retries} attempts: {timeout_err}")
-                    # Continue to next retry
                     
                 except Exception as api_err:
-                    # Non-timeout errors: don't retry, fail immediately
                     error_type = type(api_err).__name__
                     LOG.error(f"YooKassa API error (non-retryable) for payment {payment_id}: "
                             f"{error_type}: {api_err}")
                     raise ValueError(f"YooKassa API error: {api_err}")
             else:
-                # All retries exhausted
                 if last_error:
                     raise ValueError(f"YooKassa API failed after {max_retries} attempts: {last_error}")
                 else:
                     raise ValueError("YooKassa API failed: unknown error")
 
-            # Validate response
             if not yookassa_payment or not yookassa_payment.id:
                 raise ValueError("YooKassa returned invalid payment response")
 
@@ -172,7 +162,6 @@ class YooKassaGateway(BasePaymentGateway):
             if not confirmation_url:
                 raise ValueError("YooKassa payment missing confirmation URL")
 
-            # Store YooKassa payment ID in metadata
             await self.payment_repo.update_payment_metadata(
                 payment_id=payment_id,
                 metadata={'yookassa_payment_id': yookassa_payment.id}
@@ -198,7 +187,6 @@ class YooKassaGateway(BasePaymentGateway):
             )
 
         except ValueError as ve:
-            # Re-raise ValueError as-is (already formatted)
             raise
         except Exception as e:
             error_type = type(e).__name__
@@ -236,14 +224,12 @@ class YooKassaGateway(BasePaymentGateway):
 
             await self._ensure_configured()
 
-            # Get payment status from YooKassa
             yookassa_payment = await asyncio.to_thread(YooKassaPayment.find_one, yookassa_payment_id)
 
             if not yookassa_payment:
                 LOG.warning(f"YooKassa payment {yookassa_payment_id} not found")
                 return False
 
-            # Check if payment is succeeded
             if yookassa_payment.status == 'succeeded':
                 result = await self.session.execute(
                     select(PaymentModel)
@@ -294,14 +280,12 @@ class YooKassaGateway(BasePaymentGateway):
 
                 has_active_sub = user.subscription_end and user.subscription_end > datetime.utcnow()
 
-                # Invalidate cache
                 try:
                     redis = await self.payment_repo.get_redis()
                     await redis.delete(f"user:{user.tg_id}:balance")
                 except Exception as e:
                     LOG.warning(f"Redis error invalidating cache for user {user.tg_id}: {e}")
 
-                # Send notification
                 await self.on_payment_confirmed(
                     payment_id=payment_id,
                     tx_hash=tx_hash,

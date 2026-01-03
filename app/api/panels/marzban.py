@@ -7,17 +7,12 @@ from app.api.types.marzban import MarzbanUserResponse, MarzbanUserStatus
 
 
 class MarzbanPanel(BaseVPNPanel):
-    """
-    Адаптер для Marzban панели.
-    Конвертирует Marzban-специфичные типы в универсальные PanelUser.
-    """
     
     def __init__(self, config: PanelConfig):
         super().__init__(config)
         self.api = MarzbanApiManager(host=config.host)
     
     async def authenticate(self) -> bool:
-        """Аутентификация через Marzban API"""
         token = await self.api.get_token(
             username=self.config.username,
             password=self.config.password
@@ -34,13 +29,12 @@ class MarzbanPanel(BaseVPNPanel):
         data_limit: int,
         proxies: Dict[str, Any]
     ) -> PanelUser:
-        """Создание пользователя в Marzban"""
         data = {
             "username": username,
-            "expire": expire_timestamp,  # Marzban использует "expire"
+            "expire": expire_timestamp,
             "data_limit": data_limit,
             "data_limit_reset_strategy": "month",
-            "ip_limit": 2,  # Можно вынести в конфиг
+            "ip_limit": 2,
             "proxies": proxies
         }
         
@@ -52,7 +46,6 @@ class MarzbanPanel(BaseVPNPanel):
         return self._convert_to_panel_user(marzban_user)
     
     async def get_user(self, username: str) -> Optional[PanelUser]:
-        """Получение пользователя из Marzban"""
         marzban_user = await self.api.get_user(username, self._access_token)
         
         if not marzban_user:
@@ -68,8 +61,6 @@ class MarzbanPanel(BaseVPNPanel):
         search: Optional[str] = None,
         owner_username: Optional[str] = None,
     ) -> List[PanelUser]:
-        """Получение списка пользователей с фильтрацией"""
-        # Конвертируем status в MarzbanUserStatus
         marzban_status = None
         if status:
             try:
@@ -97,7 +88,6 @@ class MarzbanPanel(BaseVPNPanel):
         expire_timestamp: Optional[int] = None,
         data_limit: Optional[int] = None
     ) -> PanelUser:
-        """Изменение пользователя в Marzban"""
         data = {}
         
         if expire_timestamp is not None:
@@ -114,27 +104,21 @@ class MarzbanPanel(BaseVPNPanel):
         return self._convert_to_panel_user(marzban_user)
     
     async def delete_user(self, username: str) -> bool:
-        """Удаление пользователя из Marzban"""
         return await self.api.remove_user(username, self._access_token)
     
     async def activate_user(self, username: str) -> bool:
-        """Активация пользователя"""
         return await self.api.activate_user(username, self._access_token)
     
     async def disable_user(self, username: str) -> bool:
-        """Отключение пользователя"""
         return await self.api.disabled_user(username, self._access_token)
     
     async def reset_user(self, username: str) -> bool:
-        """Сброс трафика пользователя"""
         return await self.api.reset_user(username, self._access_token)
     
     async def revoke_user_subscription(self, username: str) -> bool:
-        """Отзыв подписки пользователя (смена subscription URL)"""
         return await self.api.revoke_user(username, self._access_token)
     
     async def get_available_services(self) -> List[Dict[str, Any]]:
-        """Получение списка inbounds из Marzban"""
         inbounds = await self.api.get_inbounds(self._access_token)
         
         if not inbounds:
@@ -151,7 +135,6 @@ class MarzbanPanel(BaseVPNPanel):
         ]
     
     async def get_admins(self) -> List[Dict[str, Any]]:
-        """Получение списка администраторов"""
         admins = await self.api.get_admins(self._access_token)
         
         if not admins:
@@ -168,19 +151,15 @@ class MarzbanPanel(BaseVPNPanel):
         ]
     
     async def set_owner(self, username: str, admin_username: str) -> bool:
-        """Установка владельца пользователя"""
         return await self.api.set_owner(username, admin_username, self._access_token)
     
     async def activate_users(self, admin_username: str) -> bool:
-        """Активация всех пользователей администратора"""
         return await self.api.activate_users(admin_username, self._access_token)
     
     async def disable_users(self, admin_username: str) -> bool:
-        """Отключение всех пользователей администратора"""
         return await self.api.disabled_users(admin_username, self._access_token)
     
     async def get_nodes(self) -> List[Dict[str, Any]]:
-        """Получение списка нод"""
         nodes = await self.api.get_nodes(self._access_token)
         
         if not nodes:
@@ -199,27 +178,12 @@ class MarzbanPanel(BaseVPNPanel):
         ]
     
     async def restart_node(self, node_id: int) -> bool:
-        """Перезапуск ноды"""
         return await self.api.restart_node(self._access_token, node_id)
     
     def _convert_to_panel_user(self, marzban_user: MarzbanUserResponse) -> PanelUser:
-        """
-        Конвертация Marzban-специфичной модели в универсальную.
-        
-        Marzban возвращает MarzbanUserResponse с полями:
-        - username
-        - expire (int timestamp)
-        - data_limit (int bytes)
-        - used_traffic (int bytes)
-        - status (enum)
-        - links (List[str])
-        - subscription_url (str)
-        """
-        # Получаем subscription URL или первую ссылку
         subscription_url = marzban_user.subscription_url
         if not subscription_url and marzban_user.links:
             subscription_url = marzban_user.links[0]
-            # Добавляем fragment #OrbitVPN для красоты
             parsed = urlparse(subscription_url)
             subscription_url = urlunparse(parsed._replace(fragment="OrbitVPN"))
         

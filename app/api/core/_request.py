@@ -11,24 +11,14 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class ApiRequest(ABC):
-    """
-    Abstract base class for API interactions with robust session management
-    """
-
     def __init__(
         self,
         host: str,
     ) -> None:
-        """
-        Initialize API client
-        """
         self.host = host.rstrip("/")
         self._client = httpx.AsyncClient(timeout=5.0, verify=False)
 
     def _get_headers(self, access: Optional[str] = None) -> Dict[str, str]:
-        """
-        Generate authentication headers
-        """
         if access:
             headers = {"Content-Type": "application/json"}
             headers["Authorization"] = f"Bearer {access}"
@@ -45,9 +35,6 @@ class ApiRequest(ABC):
         params: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
     ) -> Union[httpx.Response, T, bool]:
-        """
-        Generic request method with flexible parameters and empty response handling
-        """
         try:
             headers = self._get_headers(access)
             clean_data = self._clean_payload(data)
@@ -112,9 +99,6 @@ class ApiRequest(ABC):
         return clean_nones_and_convert_datetime(data)
 
     async def close(self) -> None:
-        """
-        Close the HTTP client session
-        """
         await self._client.aclose()
 
     async def get(
@@ -124,9 +108,6 @@ class ApiRequest(ABC):
         params: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
     ) -> Union[httpx.Response, T]:
-        """
-        Perform a GET request
-        """
         return await self._request(
             "GET", endpoint, params=params, response_model=response_model, access=access
         )
@@ -139,9 +120,6 @@ class ApiRequest(ABC):
         params: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
     ) -> Union[httpx.Response, T]:
-        """
-        Perform a POST request
-        """
         return await self._request(
             "POST",
             endpoint,
@@ -159,9 +137,6 @@ class ApiRequest(ABC):
         params: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
     ) -> Union[httpx.Response, T]:
-        """
-        Perform a PUT request
-        """
         return await self._request(
             "PUT",
             endpoint,
@@ -178,9 +153,6 @@ class ApiRequest(ABC):
         params: Optional[Dict[str, Any]] = None,
         response_model: Optional[Type[T]] = None,
     ) -> Union[httpx.Response, T]:
-        """
-        Perform a DELETE request
-        """
         return await self._request(
             "DELETE",
             endpoint,

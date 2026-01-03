@@ -14,19 +14,16 @@ class LocaleMiddleware(BaseMiddleware):
         data: Dict[str, Any],
     ) -> Any:
         tg_user = data.get("event_from_user")
-        lang = "ru"  # Default language
+        lang = "ru"
 
         if tg_user:
-            # Try Redis first without opening DB session (performance optimization)
             redis_client = await get_redis()
             key = f"user:{tg_user.id}:lang"
             cached_lang = await redis_client.get(key)
 
             if cached_lang:
-                # Cache hit - no DB session needed
                 lang = cached_lang
             else:
-                # Cache miss - open session only when necessary
                 async with get_session() as session:
                     user_repo = UserRepository(session, redis_client)
                     lang = await user_repo.get_lang(tg_user.id)

@@ -1,5 +1,3 @@
-"""Keyboard management system"""
-
 from ._callbacks import PageCB, SelectCB
 from ._enums import Pages, Actions, YesOrNot, SelectAll, JsonHandler, RandomHandler
 from .manager import KeyboardManager
@@ -30,7 +28,6 @@ __all__ = [
     "SelectAll",
     "JsonHandler",
     "RandomHandler",
-    # Admin keyboards
     "admin_panel_kb",
     "admin_servers_kb",
     "admin_clear_configs_confirm_kb",

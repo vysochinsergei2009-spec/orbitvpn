@@ -130,14 +130,8 @@ class TonGateway(BasePaymentGateway):
         lang: str = "ru",
         has_active_subscription: bool = False
     ):
-        """
-        Callback when payment is confirmed.
-
-        Sends Telegram notification to user about successful payment.
-        """
         LOG.info(f"TON payment confirmed callback: id={payment_id}, tx={tx_hash}")
 
-        # Send notification if bot is available and we have user info
         if self.bot and tg_id and total_amount:
             from app.utils.payment_notifications import send_payment_notification
 
@@ -151,4 +145,3 @@ class TonGateway(BasePaymentGateway):
                 )
             except Exception as e:
                 LOG.error(f"Error sending payment notification to {tg_id}: {e}")
-                # Don't fail payment confirmation if notification fails

@@ -36,7 +36,6 @@ class KeyboardManager:
 
         kb.adjust(2)
 
-        # Add admin panel button if in admin context
         if t:
             kb.row(
                 InlineKeyboardButton(
@@ -209,7 +208,6 @@ class KeyboardManager:
 
         kb.adjust(2)
 
-        # Filter buttons
         if filters and t:
             buttons = []
             for f in filters:
@@ -227,7 +225,6 @@ class KeyboardManager:
             if buttons:
                 kb.row(*buttons, width=len(filters))
 
-        # Pagination control
         if control:
             left, right = control
             buttons = []
@@ -260,7 +257,6 @@ class KeyboardManager:
             if buttons:
                 kb.row(*buttons, width=2)
 
-        # Search button
         if search and t:
             kb.row(
                 InlineKeyboardButton(
@@ -274,7 +270,6 @@ class KeyboardManager:
                 width=1,
             )
 
-        # Bottom buttons
         if t:
             kb.row(
                 InlineKeyboardButton(
@@ -292,7 +287,6 @@ class KeyboardManager:
                 width=2,
             )
 
-            # Back navigation
             if server_back and not user_back:
                 kb.row(
                     InlineKeyboardButton(
@@ -378,7 +372,6 @@ class KeyboardManager:
 
         kb.adjust(width)
 
-        # Select all / Deselect all
         if all_selects and selects is not None and t:
             select_buttons = []
             if len(selects) != len(data) and len(selects) > 0:
@@ -434,7 +427,6 @@ class KeyboardManager:
             if select_buttons:
                 kb.row(*select_buttons, width=len(select_buttons))
 
-        # Done / Home buttons
         if t:
             if selects is not None:
                 kb.row(
@@ -463,7 +455,6 @@ class KeyboardManager:
                     width=1,
                 )
 
-            # Back navigation
             if server_back and not user_back:
                 kb.row(
                     InlineKeyboardButton(

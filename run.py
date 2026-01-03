@@ -10,8 +10,9 @@ from app.utils.notifications import SubscriptionNotificationTask
 from app.utils.config_cleanup import ConfigCleanupTask
 from app.utils.auto_renewal import AutoRenewalTask
 from app.db.db import close_db
-from app.db.init_db import init_database
+from app.db.init import init_database
 from config import bot
+from app.utils.tasks import tasker
 
 LOG = get_logger(__name__)
 
@@ -47,20 +48,6 @@ async def main():
     rate_limit_cleanup_task = asyncio.create_task(
         cleanup_rate_limit(limiter, interval=3600, max_age=3600)
     )
-
-    payment_cleanup = PaymentCleanupTask(check_interval_seconds=300, cleanup_days=7)
-    payment_cleanup.start()
-
-    subscription_notifications = SubscriptionNotificationTask(bot, check_interval_seconds=3600 * 3)
-    subscription_notifications.start()
-
-    # Start auto-renewal task (runs every 6 hours, renews subscriptions with sufficient balance)
-    auto_renewal = AutoRenewalTask(bot, check_interval_seconds=3600 * 6)
-    auto_renewal.start()
-
-    # Start config cleanup task (runs once per week, removes configs expired >14 days)
-    config_cleanup = ConfigCleanupTask(check_interval_seconds=86400 * 7, days_threshold=14)
-    config_cleanup.start()
 
     LOG.info("Bot started...")
 

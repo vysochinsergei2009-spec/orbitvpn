@@ -19,23 +19,9 @@ async def send_payment_notification(
     lang: str = "ru",
     has_active_subscription: bool = False
 ):
-    """
-    Send payment confirmation notification to user.
-
-    Args:
-        bot: Aiogram Bot instance
-        tg_id: User Telegram ID
-        amount: Total amount credited
-        lang: User language (ru/en)
-        has_active_subscription: Whether user has active subscription
-
-    Returns:
-        True if sent successfully, False otherwise
-    """
     try:
         t = get_translator(lang)
 
-        # Build success message
         success_text = t('payment_success', amount=float(amount))
 
         await bot.send_message(

@@ -8,17 +8,13 @@ from app.api.types.marzneshin import MarzneshinUserResponse
 
 
 class MarzneshinPanel(BaseVPNPanel):
-    """
-    Адаптер для Marzneshin панели.
-    Конвертирует Marzneshin-специфичные типы в универсальные PanelUser.
-    """
     
     def __init__(self, config: PanelConfig):
         super().__init__(config)
         self.api = MarzneshinApiManager(host=config.host)
+        self._service_ids_cache: Optional[List[int]] = None
     
     async def authenticate(self) -> bool:
-        """Аутентификация через Marzneshin API"""
         token = await self.api.get_token(
             username=self.config.username,
             password=self.config.password
@@ -28,29 +24,36 @@ class MarzneshinPanel(BaseVPNPanel):
             return True
         return False
     
+    async def _get_default_service_ids(self) -> List[int]:
+        if self._service_ids_cache is not None:
+            return self._service_ids_cache
+        
+        services = await self.api.get_services(self._access_token)
+        if not services:
+            return []
+        
+        self._service_ids_cache = [service.id for service in services]
+        return self._service_ids_cache
+    
     async def create_user(
         self, 
         username: str, 
         expire_timestamp: int,
         data_limit: int,
-        proxies: Dict[str, Any]  # В Marzneshin не используется
+        proxies: Dict[str, Any]
     ) -> PanelUser:
-        """
-        Создание пользователя в Marzneshin.
+        service_ids = await self._get_default_service_ids()
         
-        ВАЖНО: Marzneshin использует другую модель:
-        - Вместо expire используется expire_strategy и expire_date
-        - Вместо proxies используется service_ids
-        """
+        if not service_ids:
+            raise ValueError("No services available in Marzneshin panel. Please configure services first.")
+        
         data = {
             "username": username,
-            "expire_strategy": "fixed_date",  # Фиксированная дата окончания
+            "expire_strategy": "fixed_date",
             "expire_date": datetime.fromtimestamp(expire_timestamp).isoformat(),
             "data_limit": data_limit,
             "data_limit_reset_strategy": "month",
-            # TODO: service_ids нужно получить из get_available_services()
-            # Пока используем пустой список - нужно будет исправить
-            "service_ids": [],
+            "service_ids": service_ids,
         }
         
         marzneshin_user = await self.api.create_user(data, self._access_token)
@@ -61,7 +64,6 @@ class MarzneshinPanel(BaseVPNPanel):
         return self._convert_to_panel_user(marzneshin_user)
     
     async def get_user(self, username: str) -> Optional[PanelUser]:
-        """Получение пользователя из Marzneshin"""
         marzneshin_user = await self.api.get_user(username, self._access_token)
         
         if not marzneshin_user:
@@ -79,7 +81,6 @@ class MarzneshinPanel(BaseVPNPanel):
         owner_username: Optional[str] = None,
         is_active: Optional[str] = None,
     ) -> List[PanelUser]:
-        """Получение списка пользователей с фильтрацией"""
         marzneshin_users = await self.api.get_users(
             access=self._access_token,
             page=page,
@@ -102,7 +103,6 @@ class MarzneshinPanel(BaseVPNPanel):
         expire_timestamp: Optional[int] = None,
         data_limit: Optional[int] = None
     ) -> PanelUser:
-        """Изменение пользователя в Marzneshin"""
         data = {}
         
         if expire_timestamp is not None:
@@ -120,27 +120,21 @@ class MarzneshinPanel(BaseVPNPanel):
         return self._convert_to_panel_user(marzneshin_user)
     
     async def delete_user(self, username: str) -> bool:
-        """Удаление пользователя из Marzneshin"""
         return await self.api.remove_user(username, self._access_token)
     
     async def activate_user(self, username: str) -> bool:
-        """Активация пользователя"""
         return await self.api.activate_user(username, self._access_token)
     
     async def disable_user(self, username: str) -> bool:
-        """Отключение пользователя"""
         return await self.api.disabled_user(username, self._access_token)
     
     async def reset_user(self, username: str) -> bool:
-        """Сброс трафика пользователя"""
         return await self.api.reset_user(username, self._access_token)
     
     async def revoke_user_subscription(self, username: str) -> bool:
-        """Отзыв подписки пользователя (смена subscription URL)"""
         return await self.api.revoke_user(username, self._access_token)
     
     async def get_available_services(self) -> List[Dict[str, Any]]:
-        """Получение списка services из Marzneshin"""
         services = await self.api.get_services(self._access_token)
         
         if not services:
@@ -157,7 +151,6 @@ class MarzneshinPanel(BaseVPNPanel):
         ]
     
     async def get_admins(self) -> List[Dict[str, Any]]:
-        """Получение списка администраторов"""
         admins = await self.api.get_admins(self._access_token)
         
         if not admins:
@@ -174,19 +167,15 @@ class MarzneshinPanel(BaseVPNPanel):
         ]
     
     async def set_owner(self, username: str, admin_username: str) -> bool:
-        """Установка владельца пользователя"""
         return await self.api.set_owner(username, admin_username, self._access_token)
     
     async def activate_users(self, admin_username: str) -> bool:
-        """Активация всех пользователей администратора"""
         return await self.api.activate_users(admin_username, self._access_token)
     
     async def disable_users(self, admin_username: str) -> bool:
-        """Отключение всех пользователей администратора"""
         return await self.api.disabled_users(admin_username, self._access_token)
     
     async def get_nodes(self) -> List[Dict[str, Any]]:
-        """Получение списка нод"""
         nodes = await self.api.get_nodes(self._access_token)
         
         if not nodes:
@@ -205,30 +194,15 @@ class MarzneshinPanel(BaseVPNPanel):
         ]
     
     async def restart_node(self, node_id: int) -> bool:
-        """Перезапуск ноды"""
         return await self.api.restart_node(self._access_token, node_id)
     
     def _convert_to_panel_user(self, marzneshin_user: MarzneshinUserResponse) -> PanelUser:
-        """
-        Конвертация Marzneshin-специфичной модели в универсальную.
-        
-        Marzneshin возвращает MarzneshinUserResponse с полями:
-        - username
-        - expire_strategy (enum: never, fixed_date, start_on_first_use)
-        - expire_date (datetime)
-        - data_limit (int bytes)
-        - used_traffic (int bytes)
-        - is_active (bool)
-        - subscription_url (str)
-        """
-        # Конвертируем expire_date в timestamp
         expire_timestamp = None
         if marzneshin_user.expire_date:
             expire_timestamp = int(marzneshin_user.expire_date.timestamp())
         
         subscription_url = marzneshin_user.subscription_url
         if subscription_url:
-            # Добавляем fragment #OrbitVPN
             parsed = urlparse(subscription_url)
             subscription_url = urlunparse(parsed._replace(fragment="OrbitVPN"))
         

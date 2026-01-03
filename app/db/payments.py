@@ -28,7 +28,6 @@ class PaymentRepository(BaseRepository):
         comment: Optional[str] = None,
         expected_crypto_amount: Optional[Decimal] = None
     ) -> int:
-        # Set expiration time for pending payments
         expires_at = None
         if status == 'pending':
             expires_at = datetime.utcnow() + timedelta(minutes=PAYMENT_TIMEOUT_MINUTES)
@@ -95,7 +94,6 @@ class PaymentRepository(BaseRepository):
         await self.session.commit()
 
     async def mark_payment_processed(self, payment_id: str, tg_id: int, amount: Decimal) -> bool:
-        """Mark Telegram Stars payment as processed"""
         result = await self.session.execute(
             select(PaymentModel).where(
                 PaymentModel.tx_hash == payment_id,
@@ -115,7 +113,6 @@ class PaymentRepository(BaseRepository):
         return True
 
     async def mark_payment_processed_with_lock(self, payment_id: str, tg_id: int, amount: Decimal) -> bool:
-        """Mark Telegram Stars payment as processed with database lock to prevent race conditions"""
         result = await self.session.execute(
             select(PaymentModel).where(
                 PaymentModel.tx_hash == payment_id,
@@ -135,7 +132,6 @@ class PaymentRepository(BaseRepository):
         return True
 
     async def get_pending_ton_transaction(self, comment: str, amount: Decimal) -> Optional[TonTransaction]:
-        """Get pending TON transaction by comment and amount"""
         result = await self.session.execute(
             select(TonTransaction).where(
                 TonTransaction.comment == comment,
@@ -146,7 +142,6 @@ class PaymentRepository(BaseRepository):
         return result.scalar_one_or_none()
 
     async def is_tx_hash_already_used(self, tx_hash: str) -> bool:
-        """Check if a transaction hash has already been used for a confirmed payment"""
         result = await self.session.execute(
             select(PaymentModel).where(
                 PaymentModel.tx_hash == tx_hash,
@@ -156,19 +151,11 @@ class PaymentRepository(BaseRepository):
         return result.scalar_one_or_none() is not None
 
     async def update_payment_metadata(self, payment_id: int, metadata: dict):
-        """Update payment extra_data (e.g., CryptoBot invoice_id)"""
         stmt = update(PaymentModel).where(PaymentModel.id == payment_id).values(extra_data=metadata)
         await self.session.execute(stmt)
         await self.session.commit()
 
     async def cancel_payment(self, payment_id: int) -> bool:
-        """
-        Cancel a pending payment
-
-        IMPORTANT: For YooKassa/CryptoBot, checks if payment is already succeeded
-        before cancellation to prevent loss of user funds
-        """
-        # Get payment details first
         result = await self.session.execute(
             select(PaymentModel).where(PaymentModel.id == payment_id)
         )
@@ -177,27 +164,22 @@ class PaymentRepository(BaseRepository):
         if not payment or payment.status != 'pending':
             return False
 
-        # For YooKassa/CryptoBot, check if payment is already succeeded on gateway side
         if payment.method in ['yookassa', 'cryptobot']:
             extra_data = payment.extra_data or {}
 
             if payment.method == 'yookassa':
                 yookassa_payment_id = extra_data.get('yookassa_payment_id')
                 if yookassa_payment_id:
-                    # Check if payment is succeeded in YooKassa
                     try:
                         from yookassa import Payment as YooKassaPayment
-                        # run blocking network call in thread to avoid blocking event loop
                         yookassa_payment = await asyncio.to_thread(YooKassaPayment.find_one, yookassa_payment_id)
                         if yookassa_payment and getattr(yookassa_payment, "status", None) == 'succeeded':
                             LOG.warning(f"Cannot cancel payment {payment_id}: already succeeded in YooKassa")
                             return False
                     except Exception as e:
                         LOG.error(f"Error checking YooKassa payment status: {e}")
-                        # Don't cancel if we can't verify
                         return False
 
-        # Safe to cancel
         stmt = update(PaymentModel).where(
             PaymentModel.id == payment_id,
             PaymentModel.status == 'pending'
@@ -207,7 +189,6 @@ class PaymentRepository(BaseRepository):
         return result.rowcount > 0
 
     async def get_active_pending_payments(self, tg_id: int) -> List[Dict]:
-        """Get active (non-expired) pending payments for a user"""
         now = datetime.utcnow()
         query = select(PaymentModel).where(
             PaymentModel.tg_id == tg_id,
@@ -223,25 +204,11 @@ class PaymentRepository(BaseRepository):
         method: Optional[Union[str, PaymentMethod]] = None,
         expired_hours: int = 1
     ) -> List[Dict]:
-        """
-        Get pending payments AND recently expired payments (to catch late confirmations).
-
-        This is critical for payment gateways like YooKassa where:
-        - Local timeout is 10 minutes
-        - Gateway timeout is 60 minutes
-        - User might pay after local expiry but before gateway expiry
-
-        Args:
-            method: Payment method to filter by
-            expired_hours: How many hours back to check expired payments
-        """
         now = datetime.utcnow()
         expired_threshold = now - timedelta(hours=expired_hours)
 
-        # Get pending payments
         query_pending = select(PaymentModel).where(PaymentModel.status == 'pending')
 
-        # Get recently expired payments (created within last N hours)
         query_expired = select(PaymentModel).where(
             PaymentModel.status == 'expired',
             PaymentModel.created_at > expired_threshold
@@ -252,7 +219,6 @@ class PaymentRepository(BaseRepository):
             query_pending = query_pending.where(PaymentModel.method == m)
             query_expired = query_expired.where(PaymentModel.method == m)
 
-        # Execute both queries
         result_pending = await self.session.execute(query_pending.order_by(PaymentModel.created_at))
         result_expired = await self.session.execute(query_expired.order_by(PaymentModel.created_at))
 
@@ -263,7 +229,6 @@ class PaymentRepository(BaseRepository):
         return [p.__dict__ for p in all_payments]
 
     async def expire_old_payments(self) -> int:
-        """Mark expired pending payments as expired"""
         now = datetime.utcnow()
         stmt = update(PaymentModel).where(
             PaymentModel.status == 'pending',
@@ -274,7 +239,6 @@ class PaymentRepository(BaseRepository):
         return result.rowcount
 
     async def cleanup_old_payments(self, days: int = 7) -> int:
-        """Delete old expired/cancelled payments (older than specified days)"""
         threshold = datetime.utcnow() - timedelta(days=days)
         from sqlalchemy import delete
         stmt = delete(PaymentModel).where(

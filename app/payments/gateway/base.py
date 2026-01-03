@@ -32,18 +32,6 @@ class BasePaymentGateway(ABC):
         amount: Decimal,
         allow_expired: bool = False
     ) -> bool:
-        """
-        Atomically confirm payment with database locks to prevent race conditions.
-
-        Args:
-            payment_id: Payment ID to confirm
-            tx_hash: Transaction hash (for deduplication)
-            amount: Amount to credit
-            allow_expired: Whether to allow confirming expired payments (for blockchain recovery)
-
-        Returns:
-            True if confirmed successfully, False otherwise
-        """
         from app.repo.models import Payment as PaymentModel, User
         from sqlalchemy import select
 
