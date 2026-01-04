@@ -4,16 +4,16 @@ import asyncio
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
-from gateway import *
+from .gateway import *
 from app.payments.models import PaymentResult, PaymentMethod
 from app.db.payments import PaymentRepository
 from app.db.user import UserRepository
 from app.db.db import get_session
 from app.db.cache import get_redis
-from app.settings.factory import create_bot
+from app.settings.factory import bot
 
 LOG = logging.getLogger(__name__)
-bot = create_bot()
+
 class PaymentManager:
     def __init__(self, session, redis_client=None):
         self.session = session

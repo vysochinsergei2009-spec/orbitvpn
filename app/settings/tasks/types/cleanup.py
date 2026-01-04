@@ -1,13 +1,13 @@
-import asyncio
 import logging
 from datetime import datetime, timedelta
 from sqlalchemy import select, update, func
+
 from app.db.db import get_session
 from app.db.models import User, Config
 from app.api import ClientApiManager
 from app.models.server import Server, ServerTypes
 from config import MARZBAN_BASE_URL, MARZBAN_USERNAME, MARZBAN_PASSWORD
-from app.utils.redis import get_redis
+from app.db.cache import get_redis
 
 LOG = logging.getLogger(__name__)
 
@@ -34,6 +34,7 @@ async def cleanup_expired_configs(days_threshold: int = 14) -> dict:
                     "password": MARZBAN_PASSWORD,
                 },
             )
+            
             from app.api.clients.marzban import MarzbanApiManager
             api = MarzbanApiManager(host=server.data["host"])
             token = await api.get_token(
@@ -42,7 +43,7 @@ async def cleanup_expired_configs(days_threshold: int = 14) -> dict:
             server.access = token.access_token if token else None
 
             if not server.access:
-                LOG.error("Failed to get access token for Marzban server. Aborting cleanup.")
+                LOG.error("Failed to get Marzban access token. Aborting cleanup.")
                 return stats
 
             api_manager = ClientApiManager()
@@ -115,61 +116,3 @@ async def cleanup_expired_configs(days_threshold: int = 14) -> dict:
         LOG.error(f"Fatal error in cleanup_expired_configs: {type(e).__name__}: {e}")
         stats['failed'] = stats['total_checked']
         return stats
-
-
-class ConfigCleanupTask:
-    """
-    Background task that periodically cleans up expired configs.
-
-    Runs once per week by default and removes configs for users
-    whose subscriptions expired more than 14 days ago.
-    """
-
-    def __init__(self, check_interval_seconds: int = 86400 * 7, days_threshold: int = 14):
-        """
-        Args:
-            check_interval_seconds: How often to run cleanup (default: 7 days)
-            days_threshold: Days after expiry to keep configs (default: 14)
-        """
-        self.check_interval = check_interval_seconds
-        self.days_threshold = days_threshold
-        self.task: asyncio.Task = None
-        self._running = False
-
-    async def run_once(self):
-        """Run a single cleanup cycle"""
-        try:
-            stats = await cleanup_expired_configs(self.days_threshold)
-            LOG.info(f"Expired config cleanup stats: {stats}")
-        except Exception as e:
-            LOG.error(f"Config cleanup error: {type(e).__name__}: {e}")
-
-    async def run_loop(self):
-        """Continuously run cleanup checks"""
-        self._running = True
-        LOG.info(f"Config cleanup task started (interval: {self.check_interval}s, threshold: {self.days_threshold} days)")
-
-        while self._running:
-            try:
-                await self.run_once()
-            except Exception as e:
-                LOG.error(f"Error in config cleanup loop: {type(e).__name__}: {e}")
-
-            await asyncio.sleep(self.check_interval)
-
-        LOG.info("Config cleanup task stopped")
-
-    def start(self):
-        """Start the background cleanup task"""
-        if self.task is None or self.task.done():
-            self.task = asyncio.create_task(self.run_loop())
-            LOG.info("Config cleanup task created")
-        else:
-            LOG.warning("Config cleanup task already running")
-
-    def stop(self):
-        """Stop the background cleanup task"""
-        self._running = False
-        if self.task and not self.task.done():
-            self.task.cancel()
-            LOG.info("Config cleanup task cancelled")

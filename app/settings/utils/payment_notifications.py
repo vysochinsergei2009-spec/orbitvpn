@@ -1,12 +1,9 @@
-"""
-Payment notification utilities for sending payment confirmation messages to users.
-"""
 import logging
 from decimal import Decimal
 from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 
-from app.locales.locales import get_translator
+from app.settings.locales.locales import get_translator
 from app.keys.keyboards import payment_success_actions
 
 LOG = logging.getLogger(__name__)

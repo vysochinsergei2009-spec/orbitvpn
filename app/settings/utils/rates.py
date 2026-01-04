@@ -30,7 +30,6 @@ async def get_ton_price() -> Decimal:
 
 
 async def get_usdt_rub_rate() -> Decimal:
-    """Get USDT to RUB exchange rate from CoinGecko API with caching"""
     now = datetime.utcnow()
 
     if (_usdt_price_cache["price"] and

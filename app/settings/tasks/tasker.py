@@ -4,11 +4,11 @@ from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 from aiogram import Bot
 
-from items.payments_cleanup import cleanup_expired_payments
-from items.payments import check_ton_transactions
-from items.cleanup import cleanup_expired_configs
-from items.notifications import check_expiring_subscriptions
-from items.auto_renewal import check_auto_renewals
+from .types.payments_cleanup import cleanup_expired_payments
+from .types.payments import check_ton_transactions
+from .types.cleanup import cleanup_expired_configs
+from .types.notifications import check_expiring_subscriptions
+from .types.auto_renewal import check_auto_renewals
 
 LOG = logging.getLogger(__name__)
 

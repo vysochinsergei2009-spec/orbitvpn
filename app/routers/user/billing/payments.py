@@ -21,7 +21,7 @@ from app.settings.utils.logging import get_logger
 from app.db.cache import get_redis
 from app.settings.config import env, PLANS
 from ..utils import safe_answer_callback, get_repositories, get_user_balance, format_expire_date
-from app.settings.factory import create_bot
+from app.settings.factory import bot
 
 router = Router()
 LOG = get_logger(__name__)
@@ -241,8 +241,6 @@ async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
 @router.pre_checkout_query()
 async def pre_checkout(pre_checkout_query: PreCheckoutQuery):
     payload = pre_checkout_query.invoice_payload
-
-    bot = create_bot()
 
     if not payload.startswith("topup_"):
         await bot.answer_pre_checkout_query(
