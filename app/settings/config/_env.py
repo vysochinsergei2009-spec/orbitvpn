@@ -11,6 +11,7 @@ class EnvSettingsFile(BaseSettings):
     DATABASE_PASSWORD: str
     DATABASE_NAME: str
     DATABASE_HOST: str = "localhost"
+    DATABASE_PORT: str = 5432
     REDIS_URL: str = "redis://localhost"
     PORT: int = 5000
     VPN_PANEL_TYPE: str = "marzban"

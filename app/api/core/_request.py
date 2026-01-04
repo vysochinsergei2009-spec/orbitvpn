@@ -3,7 +3,7 @@ from abc import ABC
 from typing import Optional, Union, Dict, Any, Type, TypeVar
 import httpx
 from pydantic import BaseModel
-from app.utils.logging import get_logger
+from app.settings.utils.logging import get_logger
 
 logger = get_logger(__name__)
 

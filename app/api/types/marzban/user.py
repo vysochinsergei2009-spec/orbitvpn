@@ -182,7 +182,6 @@ class MarzbanUserResponse(BaseModel):
         }
 
     def format_data_str(self) -> str:
-        """Return formatted data as a string"""
         now = ensure_utc(datetime.now(timezone.utc))
 
         data = [

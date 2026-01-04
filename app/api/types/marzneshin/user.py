@@ -49,7 +49,6 @@ class MarzneshinUserResponse(BaseModel):
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}
 
-    # Validator for all datetime fields
     @validator(
         "expire_date",
         "activation_deadline",

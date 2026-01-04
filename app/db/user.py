@@ -13,7 +13,7 @@ from .db import get_session
 from app.api.base import PanelConfig
 from app.api.manager import PanelFactory
 from app.models.server import Server, ServerTypes
-from config import (
+from app.settings.config import (
     VPN_PANEL_TYPE,
     PANEL_HOST,
     PANEL_USERNAME,
@@ -22,9 +22,8 @@ from config import (
     REFERRAL_BONUS,
     REDIS_TTL,
 )
-from app.utils.logging import get_logger
+from app.settings.utils.logging import get_logger
 from .base import BaseRepository
-from config import REFERRAL_BONUS, REDIS_TTL
 
 LOG = get_logger(__name__)
 
@@ -41,10 +40,6 @@ class UserRepository(BaseRepository):
         return bool(re.match(r'^orbit_\d+$', username))
 
     async def _get_panel(self):
-        """
-        Получить экземпляр панели через фабрику.
-        Динамически выбирает панель на основе VPN_PANEL_TYPE.
-        """
         panel_config = PanelConfig(
             host=PANEL_HOST,
             username=PANEL_USERNAME,
@@ -54,38 +49,29 @@ class UserRepository(BaseRepository):
         
         panel = PanelFactory.create_panel(panel_config)
         
-        # Аутентификация
         auth_success = await panel.authenticate()
         if not auth_success:
             raise ValueError(f"Failed to authenticate with {VPN_PANEL_TYPE} panel")
         
         return panel
 
-    # ----------------------------
-    # Balance
-    # ----------------------------
     async def get_balance(self, tg_id: int) -> Decimal:
         redis = await self.get_redis()
 
-        # Try to get from cache, but don't fail if Redis is down
         try:
             cached = await redis.get(f"user:{tg_id}:balance")
             if cached:
                 return Decimal(cached)
         except Exception as e:
             LOG.warning(f"Redis error reading balance for user {tg_id}: {e}")
-            # Continue to database fallback
 
-        # Fallback to database
         result = await self.session.execute(select(User.balance).filter_by(tg_id=tg_id))
         balance = result.scalar() or Decimal("0.0")
 
-        # Try to cache the result, but don't fail if Redis is down
         try:
             await redis.setex(f"user:{tg_id}:balance", CACHE_TTL_BALANCE, str(balance))
         except Exception as e:
             LOG.warning(f"Redis error caching balance for user {tg_id}: {e}")
-            # Continue anyway - database read succeeded
 
         return balance
 
@@ -93,13 +79,10 @@ class UserRepository(BaseRepository):
 
         redis = await self.get_redis()
 
-        # CRITICAL FIX: Lock user row BEFORE reading balance
-        # This prevents race conditions where two concurrent updates both read
-        # the same balance value and one update gets lost
         result = await self.session.execute(
             select(User)
             .where(User.tg_id == tg_id)
-            .with_for_update()  # Acquire exclusive lock on row
+            .with_for_update()
         )
         user = result.scalar_one_or_none()
 
@@ -109,28 +92,21 @@ class UserRepository(BaseRepository):
         old_balance = user.balance
         new_balance = old_balance + amount
 
-        # Prevent negative balance
         if new_balance < 0:
             raise ValueError(f"Insufficient balance: {old_balance} + {amount} = {new_balance}")
 
-        # Update locked row
         user.balance = new_balance
         await self.session.commit()
 
         LOG.info(f"Balance changed for user {tg_id}: {old_balance} → {new_balance} ({amount:+.2f})")
 
-        # Invalidate cache after successful commit (tolerate Redis failures)
         try:
             await redis.delete(f"user:{tg_id}:balance")
         except Exception as e:
             LOG.warning(f"Redis error invalidating balance cache for user {tg_id}: {e}")
-            # Don't fail the transaction - balance was successfully updated in database
 
         return new_balance
 
-    # ----------------------------
-    # Add user if not exists
-    # ----------------------------
     async def add_if_not_exists(
         self,
         tg_id: int,
@@ -168,9 +144,6 @@ class UserRepository(BaseRepository):
         await self.session.commit()
         return True
 
-    # ----------------------------
-    # Configs
-    # ----------------------------
     async def get_configs(self, tg_id: int) -> List[Dict]:
         redis = await self.get_redis()
         key = f"user:{tg_id}:configs"
@@ -225,11 +198,7 @@ class UserRepository(BaseRepository):
             "username": cfg.username
         }
 
-    # ----------------------------
-    # Panel safe wrappers (updated to use Factory)
-    # ----------------------------
     async def _safe_remove_panel_user(self, username: str):
-        """Удалить пользователя через панель"""
         try:
             panel = await self._get_panel()
             await panel.delete_user(username)
@@ -237,7 +206,6 @@ class UserRepository(BaseRepository):
         except Exception as e:
             LOG.warning("Failed to remove panel user %s: %s", username, e)
             try:
-                # Fallback to expire
                 panel = await self._get_panel()
                 await panel.modify_user(username, expire_timestamp=int(time.time() - 86400))
                 LOG.info("Expired panel user %s as fallback", username)
@@ -245,7 +213,6 @@ class UserRepository(BaseRepository):
                 LOG.error("Failed to expire panel user %s during fallback: %s", username, ex)
 
     async def _safe_modify_panel_user(self, username: str, expire_ts: int):
-        """Изменить expire пользователя через панель"""
         try:
             panel = await self._get_panel()
             await panel.modify_user(username, expire_timestamp=expire_ts)
@@ -253,9 +220,6 @@ class UserRepository(BaseRepository):
         except Exception as e:
             LOG.error("Failed to modify panel user %s expire=%s: %s", username, expire_ts, e)
 
-    # ----------------------------
-    # Delete config (clean delete)
-    # ----------------------------
     async def delete_config(self, cfg_id: int, tg_id: int):
         redis = await self.get_redis()
         username = None
@@ -280,9 +244,6 @@ class UserRepository(BaseRepository):
 
         await redis.delete(f"user:{tg_id}:configs")
 
-    # ----------------------------
-    # Language
-    # ----------------------------
     async def get_lang(self, tg_id: int) -> str:
         redis = await self.get_redis()
         key = f"user:{tg_id}:lang"
@@ -303,9 +264,6 @@ class UserRepository(BaseRepository):
         await self.session.execute(update(User).where(User.tg_id == tg_id).values(lang=lang))
         await self.session.commit()
 
-    # ----------------------------
-    # Notifications
-    # ----------------------------
     async def get_notifications(self, tg_id: int) -> bool:
         redis = await self.get_redis()
         key = f"user:{tg_id}:notifications"
@@ -350,9 +308,6 @@ class UserRepository(BaseRepository):
         LOG.info(f"Notifications toggled for user {tg_id}: {new_state}")
         return new_state
 
-    # ----------------------------
-    # Subscription helpers
-    # ----------------------------
     async def get_subscription_end(self, tg_id: int) -> Optional[float]:
         redis = await self.get_redis()
         key = f"user:{tg_id}:sub_end"
@@ -450,12 +405,8 @@ class UserRepository(BaseRepository):
     async def create_and_add_config(
         self,
         tg_id: int,
-        manual_instance_id: Optional[str] = None # This is now ignored
+        manual_instance_id: Optional[str] = None
     ) -> Dict:
-        """
-        Создать конфигурацию через выбранную панель (Marzban/Marzneshin).
-        Обновлено: использует PanelFactory вместо хардкода Marzban.
-        """
         redis = await self.get_redis()
         username = f'orbit_{tg_id}'
 
@@ -482,18 +433,15 @@ class UserRepository(BaseRepository):
 
             days_remaining = max(1, int((user.subscription_end.timestamp() - time.time()) / 86400) + 1)
 
-        # Получаем панель через фабрику
         panel = await self._get_panel()
 
-        # Получаем inbounds/services для Marzban
-        # Для Marzneshin proxies не используются, но передаём пустой dict
         proxies = {"vless": {"flow": ""}} if VPN_PANEL_TYPE == "marzban" else {}
 
         try:
             panel_user = await panel.create_user(
                 username=username,
                 expire_timestamp=int(time.time() + days_remaining * 86400),
-                data_limit=300 * 1024 * 1024 * 1024,  # 300 GB
+                data_limit=300 * 1024 * 1024 * 1024,
                 proxies=proxies
             )
             
@@ -520,8 +468,6 @@ class UserRepository(BaseRepository):
                 LOG.error("Panel create_user failed for %s: %s", username, e)
                 raise
 
-        # Убедимся, что fragment уже есть (он добавляется в адаптерах)
-        # Но можно перепроверить
         if "#OrbitVPN" not in vless_link:
             parsed = urlparse(vless_link)
             vless_link = urlunparse(parsed._replace(fragment="OrbitVPN"))

@@ -6,8 +6,8 @@ from aiogram.exceptions import TelegramBadRequest
 
 from app.db.user import UserRepository
 from app.db.payments import PaymentRepository
-from app.utils.logging import get_logger
-from app.utils.redis import get_redis
+from app.settings.utils.logging import get_logger
+from app.db.cache import get_redis
 
 LOG = get_logger(__name__)
 
@@ -23,7 +23,6 @@ async def safe_answer_callback(callback: CallbackQuery, text: str = None, show_a
 
 
 async def get_repositories(session):
-    """Get repository instances with Redis client."""
     redis_client = await get_redis()
     return (
         UserRepository(session, redis_client),
