@@ -5,9 +5,9 @@ from aiogram import Bot
 from aiocryptopay import AioCryptoPay, Networks
 from app.payments.gateway.base import BasePaymentGateway
 from app.payments.models import PaymentResult, PaymentMethod
-from app.repo.payments import PaymentRepository
-from app.utils.rates import get_usdt_rub_rate
-from config import CRYPTOBOT_TOKEN, CRYPTOBOT_TESTNET
+from app.db.payments import PaymentRepository
+from app.settings.utils.rates import get_usdt_rub_rate
+from app.settings.config import CRYPTOBOT_TOKEN, CRYPTOBOT_TESTNET
 
 LOG = logging.getLogger(__name__)
 
@@ -40,7 +40,6 @@ class CryptoBotGateway(BasePaymentGateway):
         payment_id: Optional[int] = None,
         comment: Optional[str] = None
     ) -> PaymentResult:
-        """Create CryptoBot invoice"""
         if payment_id is None:
             raise ValueError("payment_id is required for CryptoBot")
 
@@ -96,7 +95,7 @@ class CryptoBotGateway(BasePaymentGateway):
 
     async def check_payment(self, payment_id: int) -> bool:
         try:
-            from app.repo.models import Payment as PaymentModel, User
+            from app.db.models import Payment as PaymentModel, User
             from sqlalchemy import select
 
             payment = await self.payment_repo.get_payment(payment_id)
@@ -217,7 +216,7 @@ class CryptoBotGateway(BasePaymentGateway):
         LOG.info(f"CryptoBot payment confirmed callback: id={payment_id}, tx={tx_hash}")
 
         if self.bot and tg_id and total_amount:
-            from app.utils.payment_notifications import send_payment_notification
+            from app.settings.utils.payment_notifications import send_payment_notification
 
             try:
                 await send_payment_notification(
@@ -231,6 +230,5 @@ class CryptoBotGateway(BasePaymentGateway):
                 LOG.error(f"Error sending payment notification to {tg_id}: {e}")
 
     async def close(self):
-        """Close CryptoPay client session"""
         if self._cryptopay:
             await self._cryptopay.close()

@@ -9,12 +9,14 @@ from urllib3.exceptions import ConnectTimeoutError, ReadTimeoutError, TimeoutErr
 from requests.exceptions import ConnectTimeout, ReadTimeout, Timeout as RequestsTimeout
 from app.payments.gateway.base import BasePaymentGateway
 from app.payments.models import PaymentResult, PaymentMethod
-from app.repo.payments import PaymentRepository
-from config import (
+from app.db.payments import PaymentRepository
+from app.settings.config import (
     YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY,
     YOOKASSA_TEST_SHOP_ID, YOOKASSA_TEST_SECRET_KEY,
     YOOKASSA_TESTNET
 )
+
+from app.settings.factory import create_bot
 
 LOG = logging.getLogger(__name__)
 
@@ -29,7 +31,6 @@ class YooKassaGateway(BasePaymentGateway):
         self.bot = bot
 
     async def _ensure_configured(self):
-        """Configure YooKassa SDK with credentials based on test/production mode"""
         if not self._configured:
             if YOOKASSA_TESTNET:
                 shop_id = YOOKASSA_TEST_SHOP_ID
@@ -66,14 +67,13 @@ class YooKassaGateway(BasePaymentGateway):
         payment_id: Optional[int] = None,
         comment: Optional[str] = None
     ) -> PaymentResult:
-        """Create YooKassa payment and return payment URL"""
         if payment_id is None:
             raise ValueError("payment_id is required for YooKassa")
 
         try:
             await self._ensure_configured()
 
-            from config import bot
+            bot = create_bot()
             bot_info = await bot.get_me()
             bot_username = bot_info.username
             return_url = f"https://t.me/{bot_username}"
@@ -196,9 +196,8 @@ class YooKassaGateway(BasePaymentGateway):
             raise ValueError(f"Failed to create YooKassa payment: {error_type}: {error_msg}")
 
     async def check_payment(self, payment_id: int) -> bool:
-        """Check if YooKassa payment has been paid"""
         try:
-            from app.repo.models import Payment as PaymentModel, User
+            from app.db.models import Payment as PaymentModel, User
             from sqlalchemy import select
 
             payment = await self.payment_repo.get_payment(payment_id)
@@ -352,7 +351,7 @@ class YooKassaGateway(BasePaymentGateway):
         """Send payment confirmation notification"""
         LOG.info(f"YooKassa payment confirmed: id={payment_id}, tx={tx_hash}")
         if self.bot and tg_id and total_amount:
-            from app.utils.payment_notifications import send_payment_notification
+            from app.settings.utils.payment_notifications import send_payment_notification
             try:
                 await send_payment_notification(
                     bot=self.bot,

@@ -4,8 +4,8 @@ from typing import Optional
 from aiogram.types import LabeledPrice
 from app.payments.gateway.base import BasePaymentGateway
 from app.payments.models import PaymentResult, PaymentMethod
-from app.repo.payments import PaymentRepository
-from config import TELEGRAM_STARS_RATE
+from app.db.payments import PaymentRepository
+from app.settings.config import TELEGRAM_STARS_RATE
 
 LOG = logging.getLogger(__name__)
 

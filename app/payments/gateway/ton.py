@@ -4,8 +4,8 @@ from typing import Optional
 from aiogram import Bot
 from app.payments.gateway.base import BasePaymentGateway
 from app.payments.models import PaymentResult, PaymentMethod
-from app.repo.payments import PaymentRepository
-from config import TON_ADDRESS
+from app.db.payments import PaymentRepository
+from app.settings.config import TON_ADDRESS
 
 LOG = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class TonGateway(BasePaymentGateway):
         if payment_id is None or comment is None:
             raise ValueError("payment_id and comment required for TON")
 
-        from app.utils.rates import get_ton_price
+        from app.settings.utils.rates import get_ton_price
         try:
             ton_price = await get_ton_price()
             expected_ton = (Decimal(amount) / ton_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -57,10 +57,6 @@ class TonGateway(BasePaymentGateway):
         )
 
     async def check_payment(self, payment_id: int) -> bool:
-        """
-        Check if TON payment has been confirmed on blockchain.
-        Uses database locks to prevent replay attacks and race conditions.
-        """
         payment = await self.payment_repo.get_payment(payment_id)
         if not payment:
             LOG.warning(f"Payment {payment_id} not found")
@@ -98,7 +94,7 @@ class TonGateway(BasePaymentGateway):
         )
 
         if confirmed:
-            from app.repo.models import User
+            from app.db.models import User
             from sqlalchemy import select
 
             async with self.session.begin():
@@ -133,7 +129,7 @@ class TonGateway(BasePaymentGateway):
         LOG.info(f"TON payment confirmed callback: id={payment_id}, tx={tx_hash}")
 
         if self.bot and tg_id and total_amount:
-            from app.utils.payment_notifications import send_payment_notification
+            from app.settings.utils.payment_notifications import send_payment_notification
 
             try:
                 await send_payment_notification(

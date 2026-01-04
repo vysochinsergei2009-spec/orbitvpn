@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional
 from datetime import datetime
 from app.payments.models import PaymentResult
-from app.utils.logging import get_logger
+from app.settings.utils.logging import get_logger
 
 LOG = get_logger(__name__)
 
@@ -32,7 +32,7 @@ class BasePaymentGateway(ABC):
         amount: Decimal,
         allow_expired: bool = False
     ) -> bool:
-        from app.repo.models import Payment as PaymentModel, User
+        from app.db.models import Payment as PaymentModel, User
         from sqlalchemy import select
 
         try:
@@ -104,8 +104,7 @@ class BasePaymentGateway(ABC):
             return False
 
     async def get_redis(self):
-        """Get Redis client (must be implemented by subclass if needed)"""
         if hasattr(self, 'redis_client') and self.redis_client:
             return self.redis_client
-        from app.utils.redis import get_redis
+        from app.db.cache import get_redis
         return await get_redis()
