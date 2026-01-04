@@ -34,6 +34,7 @@ class EnvSettingsFile(BaseSettings):
     TELEGRAM_STARS_RATE: float = 1.5
     FREE_TRIAL_DAYS: int = 3
     PAYMENT_TIMEOUT_MINUTES: int = 15
+    REFERRAL_BONUS: int
     
     def is_admin(self, chat_id: int) -> bool:
         return chat_id in self.ADMIN_TG_IDS

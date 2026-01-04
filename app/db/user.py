@@ -10,18 +10,9 @@ from sqlalchemy import select, update, func
 
 from .models import User, Config
 from .db import get_session
-from app.api.base import PanelConfig
-from app.api.manager import PanelFactory
+from app.api.client import ClientApiManager
 from app.models.server import Server, ServerTypes
-from app.settings.config import (
-    VPN_PANEL_TYPE,
-    PANEL_HOST,
-    PANEL_USERNAME,
-    PANEL_PASSWORD,
-    MAX_IPS_PER_CONFIG,
-    REFERRAL_BONUS,
-    REDIS_TTL,
-)
+from app.settings.config import env
 from app.settings.log.logging import get_logger
 from .base import BaseRepository
 
@@ -33,27 +24,30 @@ CACHE_TTL_SUB_END = 3600
 CACHE_TTL_LANG = 86400
 CACHE_TTL_NOTIFICATIONS = 3600
 
+
 class UserRepository(BaseRepository):
 
     @staticmethod
     def _validate_username(username: str) -> bool:
         return bool(re.match(r'^orbit_\d+$', username))
 
-    async def _get_panel(self):
-        panel_config = PanelConfig(
-            host=PANEL_HOST,
-            username=PANEL_USERNAME,
-            password=PANEL_PASSWORD,
-            panel_type=VPN_PANEL_TYPE
+    async def _get_server(self) -> Server:
+        server = Server(
+            id="main",
+            name="Main Panel",
+            types=ServerTypes(env.VPN_PANEL_TYPE),
+            data={"host": env.PANEL_HOST},
+            access=None
         )
         
-        panel = PanelFactory.create_panel(panel_config)
+        api_manager = ClientApiManager(server)
+        access_token = await api_manager.get_token(env.PANEL_USERNAME, env.PANEL_PASSWORD)
         
-        auth_success = await panel.authenticate()
-        if not auth_success:
-            raise ValueError(f"Failed to authenticate with {VPN_PANEL_TYPE} panel")
+        if not access_token:
+            raise ValueError(f"Failed to authenticate with {env.VPN_PANEL_TYPE} panel")
         
-        return panel
+        server.access = access_token
+        return server
 
     async def get_balance(self, tg_id: int) -> Decimal:
         redis = await self.get_redis()
@@ -76,7 +70,6 @@ class UserRepository(BaseRepository):
         return balance
 
     async def change_balance(self, tg_id: int, amount: Decimal) -> Decimal:
-
         redis = await self.get_redis()
 
         result = await self.session.execute(
@@ -137,7 +130,7 @@ class UserRepository(BaseRepository):
             await self.session.execute(
                 update(User)
                 .where(User.tg_id == referrer_id)
-                .values(balance=User.balance + REFERRAL_BONUS)
+                .values(balance=User.balance + env.REFERRAL_BONUS)
             )
             await redis.delete(f"user:{referrer_id}:balance")
 
@@ -200,22 +193,35 @@ class UserRepository(BaseRepository):
 
     async def _safe_remove_panel_user(self, username: str):
         try:
-            panel = await self._get_panel()
-            await panel.delete_user(username)
+            server = await self._get_server()
+            api = ClientApiManager(server)
+            await api.remove_user(username)
             LOG.info("Removed panel user %s", username)
         except Exception as e:
             LOG.warning("Failed to remove panel user %s: %s", username, e)
             try:
-                panel = await self._get_panel()
-                await panel.modify_user(username, expire_timestamp=int(time.time() - 86400))
+                server = await self._get_server()
+                api = ClientApiManager(server)
+                data = {"expire": int(time.time() - 86400)}
+                await api.modify_user(username, data)
                 LOG.info("Expired panel user %s as fallback", username)
             except Exception as ex:
                 LOG.error("Failed to expire panel user %s during fallback: %s", username, ex)
 
     async def _safe_modify_panel_user(self, username: str, expire_ts: int):
         try:
-            panel = await self._get_panel()
-            await panel.modify_user(username, expire_timestamp=expire_ts)
+            server = await self._get_server()
+            api = ClientApiManager(server)
+            
+            if env.VPN_PANEL_TYPE == "marzneshin":
+                data = {
+                    "expire_strategy": "fixed_date",
+                    "expire_date": datetime.fromtimestamp(expire_ts).isoformat()
+                }
+            else:
+                data = {"expire": expire_ts}
+            
+            await api.modify_user(username, data)
             LOG.info("Modified panel user %s expire=%s", username, expire_ts)
         except Exception as e:
             LOG.error("Failed to modify panel user %s expire=%s: %s", username, expire_ts, e)
@@ -380,9 +386,9 @@ class UserRepository(BaseRepository):
                 )
                 ref_user = ref_result.scalar_one_or_none()
                 if ref_user:
-                    ref_user.balance += Decimal(str(REFERRAL_BONUS))
+                    ref_user.balance += Decimal(str(env.REFERRAL_BONUS))
                     await redis.delete(f"user:{user.referrer_id}:balance")
-                    LOG.info(f"Referral bonus {REFERRAL_BONUS} credited to {user.referrer_id} from {tg_id}")
+                    LOG.info(f"Referral bonus {env.REFERRAL_BONUS} credited to {user.referrer_id} from {tg_id}")
 
         result = await self.session.execute(select(Config.username).where(Config.tg_id == tg_id, Config.deleted == False))
         usernames = [r[0] for r in result.all()]
@@ -433,17 +439,36 @@ class UserRepository(BaseRepository):
 
             days_remaining = max(1, int((user.subscription_end.timestamp() - time.time()) / 86400) + 1)
 
-        panel = await self._get_panel()
+        server = await self._get_server()
+        api = ClientApiManager(server)
 
-        proxies = {"vless": {"flow": ""}} if VPN_PANEL_TYPE == "marzban" else {}
+        if env.VPN_PANEL_TYPE == "marzneshin":
+            configs = await api.get_configs()
+            if not configs:
+                raise ValueError("No services available in Marzneshin panel")
+            
+            service_ids = [service.id for service in configs]
+            
+            data = {
+                "username": username,
+                "expire_strategy": "fixed_date",
+                "expire_date": datetime.fromtimestamp(time.time() + days_remaining * 86400).isoformat(),
+                "data_limit": 300 * 1024 * 1024 * 1024,
+                "data_limit_reset_strategy": "month",
+                "service_ids": service_ids,
+            }
+        else:
+            data = {
+                "username": username,
+                "expire": int(time.time() + days_remaining * 86400),
+                "data_limit": 300 * 1024 * 1024 * 1024,
+                "data_limit_reset_strategy": "month",
+                "ip_limit": 2,
+                "proxies": {"vless": {"flow": ""}}
+            }
 
         try:
-            panel_user = await panel.create_user(
-                username=username,
-                expire_timestamp=int(time.time() + days_remaining * 86400),
-                data_limit=300 * 1024 * 1024 * 1024,
-                proxies=proxies
-            )
+            panel_user = await api.create_user(data)
             
             if not panel_user or not panel_user.subscription_url:
                 raise ValueError("No subscription URL returned from panel")
@@ -454,13 +479,8 @@ class UserRepository(BaseRepository):
             error_str = str(e).lower()
             if "already exists" in error_str or "409" in error_str:
                 LOG.warning("Panel user %s already exists; attempting remove+recreate", username)
-                await panel.delete_user(username)
-                panel_user = await panel.create_user(
-                    username=username,
-                    expire_timestamp=int(time.time() + days_remaining * 86400),
-                    data_limit=300 * 1024 * 1024 * 1024,
-                    proxies=proxies
-                )
+                await api.remove_user(username)
+                panel_user = await api.create_user(data)
                 if not panel_user or not panel_user.subscription_url:
                     raise ValueError("No subscription URL after recreate")
                 vless_link = panel_user.subscription_url
@@ -478,7 +498,7 @@ class UserRepository(BaseRepository):
             )
             user = result.scalar_one_or_none()
             if not user or not user.subscription_end or time.time() >= user.subscription_end.timestamp():
-                await panel.delete_user(username)
+                await api.remove_user(username)
                 raise ValueError("Subscription expired during config creation")
 
             result = await session.execute(
@@ -486,7 +506,7 @@ class UserRepository(BaseRepository):
             )
             count = result.scalar()
             if count >= 1:
-                await panel.delete_user(username)
+                await api.remove_user(username)
                 raise ValueError("Max configs reached during creation")
 
             new_name = f"Configuration {count + 1}"
@@ -505,7 +525,7 @@ class UserRepository(BaseRepository):
 
         await redis.delete(f"user:{tg_id}:configs")
 
-        LOG.info("Config created for user %s on %s panel", tg_id, VPN_PANEL_TYPE)
+        LOG.info("Config created for user %s on %s panel", tg_id, env.VPN_PANEL_TYPE)
         return {
             "id": cfg.id,
             "name": cfg.name,
@@ -514,13 +534,11 @@ class UserRepository(BaseRepository):
         }
 
     async def get_all_users(self) -> List[User]:
-        """Get all users for broadcast"""
         session = self.session
         result = await session.execute(select(User))
         return list(result.scalars().all())
 
     async def get_users_with_notifications(self) -> List[User]:
-        """Get users with notifications enabled for targeted broadcast"""
         session = self.session
         result = await session.execute(
             select(User).where(User.notifications == True)
