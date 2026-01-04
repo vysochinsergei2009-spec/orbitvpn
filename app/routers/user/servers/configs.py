@@ -7,9 +7,11 @@ import qrcode
 
 from app.keys.keyboards import actions_kb, sub_kb, qr_delete_kb
 from app.db.db import get_session
-from app.utils.logging import get_logger
-from config import INSTALL_GUIDE_URLS
+from app.settings.utils.logging import get_logger
+from app.settings.config import INSTALL_GUIDE_URLS
 from ..utils import safe_answer_callback, get_repositories, update_configs_view
+from app.settings.utils.qr import generate_qr_file
+
 
 router = Router()
 LOG = get_logger(__name__)
@@ -118,31 +120,25 @@ async def qr_config(callback: CallbackQuery, t):
             return
 
         try:
-            qr = qrcode.QRCode(
-                version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
-                box_size=10,
-                border=4,
-            )
-            qr.add_data(cfg['vless_link'])
-            qr.make(fit=True)
+            photo = generate_qr_file(cfg["vless_link"])
 
-            img = qr.make_image(fill_color="black", back_color="white")
-
-            bio = BytesIO()
-            img.save(bio, format='PNG')
-            bio.seek(0)
-
-            photo = BufferedInputFile(bio.read(), filename="qr_code.png")
             await callback.message.answer_photo(
                 photo=photo,
-                caption=t('your_config'),
-                reply_markup=qr_delete_kb(t)
+                caption=t("your_config"),
+                reply_markup=qr_delete_kb(t),
             )
 
         except Exception as e:
-            LOG.error(f"Error generating QR code for config {cfg_id}: {type(e).__name__}: {e}")
-            await safe_answer_callback(callback, t('error_creating_config'), show_alert=True)
+            LOG.error(
+                f"Error generating QR code for config {cfg_id}: "
+                f"{type(e).__name__}: {e}"
+            )
+            await safe_answer_callback(
+                callback,
+                t("error_creating_config"),
+                show_alert=True,
+            )
+
 
 
 @router.callback_query(F.data == "delete_qr_msg")

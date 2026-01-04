@@ -1,5 +1,5 @@
 from app.db.db import engine, Base
-from app.utils.logging import get_logger
+from app.settings.utils.logging import get_logger
 
 LOG = get_logger(__name__)
 

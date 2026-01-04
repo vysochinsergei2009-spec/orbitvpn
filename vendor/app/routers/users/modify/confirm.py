@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 
 from app.keys import BotKeys, SelectCB, Pages, Actions, YesOrNot
 from app.db import crud
-from app.settings.utils.qrcode import create_qr
+from app.settings.utils.qr import create_qr
 from app.settings.language import MessageTexts
 from app.api import ClinetManager
 from app.settings.track import tracker

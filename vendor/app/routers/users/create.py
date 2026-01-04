@@ -22,7 +22,7 @@ from app.db import crud
 from app.settings.language import MessageTexts
 from app.api import ClinetManager
 from app.models.user import DateTypes, UserJsonData
-from app.settings.utils.qrcode import create_qr
+from app.settings.utils.qr import create_qr
 from app.settings.track import tracker
 from app.settings.log import logger
 from app.settings.utils.user import user_create_data

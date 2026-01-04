@@ -1,0 +1,7 @@
+{
+  "name": "OrbitVPN - Secure Your Digital Universe",
+  "description": "A premium VPN service landing page featuring a SpaceX and Apple-inspired aesthetic with liquid glass effects, deep blacks, and sophisticated yellow accents.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

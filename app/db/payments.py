@@ -8,11 +8,11 @@ from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.payments.models import PaymentMethod
-from app.repo.models import Payment as PaymentModel, TonTransaction
+from .models import Payment as PaymentModel, TonTransaction
 from .db import get_session
-from app.utils.logging import get_logger
+from app.settings.utils.logging import get_logger
 from .base import BaseRepository
-from config import PAYMENT_TIMEOUT_MINUTES
+from app.settings.config import env
 
 LOG = get_logger(__name__)
 
@@ -30,7 +30,7 @@ class PaymentRepository(BaseRepository):
     ) -> int:
         expires_at = None
         if status == 'pending':
-            expires_at = datetime.utcnow() + timedelta(minutes=PAYMENT_TIMEOUT_MINUTES)
+            expires_at = datetime.utcnow() + timedelta(minutes=env.PAYMENT_TIMEOUT_MINUTES)
 
         payment = PaymentModel(
             tg_id=tg_id,
@@ -85,7 +85,7 @@ class PaymentRepository(BaseRepository):
         await self.session.commit()
 
     async def mark_failed_old_payments(self):
-        threshold = datetime.utcnow() - timedelta(minutes=PAYMENT_TIMEOUT_MINUTES)
+        threshold = datetime.utcnow() - timedelta(minutes=env.PAYMENT_TIMEOUT_MINUTES)
         stmt = update(PaymentModel).where(
             PaymentModel.status == 'pending',
             PaymentModel.created_at < threshold

@@ -1,5 +1,3 @@
-"""Keyboard manager - builds flexible panel-based keyboards"""
-
 from enum import Enum
 from typing import Callable
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -10,15 +8,8 @@ from ._callbacks import PageCB, SelectCB
 
 
 class KeyboardManager:
-    """Manages keyboard creation with panel-based navigation"""
 
     def home(self, servers: list = None, t: Callable[[str], str] = None) -> InlineKeyboardMarkup:
-        """Build home screen keyboard
-        
-        Args:
-            servers: List of server objects with id, emoji, remark
-            t: Translation function
-        """
         kb = InlineKeyboardBuilder()
         servers = servers or []
 
@@ -51,12 +42,6 @@ class KeyboardManager:
         return kb.as_markup()
 
     def menu(self, panel: int, t: Callable[[str], str]) -> InlineKeyboardMarkup:
-        """Build server menu keyboard
-        
-        Args:
-            panel: Server ID
-            t: Translation function
-        """
         kb = InlineKeyboardBuilder()
 
         items = {
@@ -113,11 +98,6 @@ class KeyboardManager:
         return kb.as_markup()
 
     def admin_panel(self, t: Callable[[str], str]) -> InlineKeyboardMarkup:
-        """Build admin panel keyboard
-        
-        Args:
-            t: Translation function
-        """
         kb = InlineKeyboardBuilder()
 
         kb.button(
@@ -176,20 +156,6 @@ class KeyboardManager:
         user_back: int | None = None,
         t: Callable[[str], str] = None,
     ) -> InlineKeyboardMarkup:
-        """Build list view keyboard with pagination
-        
-        Args:
-            items: List of items to display
-            page: Current page type
-            panel: Server/panel ID
-            control: Tuple of (prev_page, next_page) numbers
-            filters: Available filter options
-            select_filters: Currently selected filter
-            search: Show search button
-            server_back: Server ID for back button
-            user_back: User ID for back button
-            t: Translation function
-        """
         kb = InlineKeyboardBuilder()
 
         for item in items:
@@ -329,21 +295,6 @@ class KeyboardManager:
         server_back: int | None = None,
         t: Callable[[str], str] = None,
     ) -> InlineKeyboardMarkup:
-        """Build selector keyboard with multi-select support
-        
-        Args:
-            data: List of items to select from
-            types: Page type context
-            action: Action being performed
-            selects: Currently selected items
-            width: Buttons per row
-            panel: Server/panel ID
-            extra: Extra data
-            all_selects: Show select/deselect all buttons
-            user_back: User ID for back button
-            server_back: Server ID for back button
-            t: Translation function
-        """
         kb = InlineKeyboardBuilder()
 
         for d in data:
@@ -489,13 +440,6 @@ class KeyboardManager:
         user_back: int | None = None,
         t: Callable[[str], str] = None,
     ) -> InlineKeyboardMarkup:
-        """Build cancel keyboard
-        
-        Args:
-            server_back: Server ID for back button
-            user_back: User ID for back button
-            t: Translation function
-        """
         kb = InlineKeyboardBuilder()
 
         if t:

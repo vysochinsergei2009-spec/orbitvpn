@@ -1,19 +1,19 @@
 from aiogram import Router, F
 from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
-from aiogram.fsm.context import FSMContext # Added
+from aiogram.fsm.context import FSMContext
 
 from app.keys.keyboards import main_kb, get_referral_keyboard
 from app.db.db import get_session
-from config import FREE_TRIAL_DAYS
+from app.settings.config import env
 from ..utils import safe_answer_callback, get_repositories, extract_referrer_id
 
 router = Router()
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, t, state: FSMContext): # Added state
-    await state.clear() # Added clear state
+async def cmd_start(message: Message, t, state: FSMContext):
+    await state.clear()
     tg_id = message.from_user.id
     username = message.from_user.username or f"unknown_{tg_id}"
     referrer_id = extract_referrer_id(message.text)
@@ -27,7 +27,7 @@ async def cmd_start(message: Message, t, state: FSMContext): # Added state
 
         is_new_user = await user_repo.add_if_not_exists(tg_id, username, referrer_id=referrer_id)
         if is_new_user:
-            await user_repo.buy_subscription(tg_id, days=FREE_TRIAL_DAYS, price=0.0)
+            await user_repo.buy_subscription(tg_id, days=env.FREE_TRIAL_DAYS, price=0.0)
 
         await message.answer(t("cmd_start"), reply_markup=main_kb(t, user_id=tg_id))
 
@@ -36,9 +36,9 @@ async def cmd_start(message: Message, t, state: FSMContext): # Added state
 
 
 @router.callback_query(F.data == 'back_main')
-async def back_to_main(callback: CallbackQuery, t, state: FSMContext): # Added state
+async def back_to_main(callback: CallbackQuery, t, state: FSMContext):
     await safe_answer_callback(callback)
-    await state.clear() # Added clear state
+    await state.clear()
     tg_id = callback.from_user.id
     await callback.message.edit_text(t('welcome'), reply_markup=main_kb(t, user_id=tg_id))
 

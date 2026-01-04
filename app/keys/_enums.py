@@ -12,12 +12,6 @@ class Pages(str, Enum):
     TEMPLATES = "templates"
     STATS = "stats"
     
-    ADMIN_PANEL = "admin_panel"
-    ADMIN_USERS = "admin_users"
-    ADMIN_PAYMENTS = "admin_payments"
-    ADMIN_SERVERS = "admin_servers"
-    ADMIN_BROADCAST = "admin_broadcast"
-    ADMIN_STATS = "admin_stats"
     
     UPDATE = "update"
 

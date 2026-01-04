@@ -4,7 +4,7 @@ from typing import Any
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from config import ADMIN_TG_IDS, PLANS
+from app.settings.config import env, PLANS
 
 
 def _build_keyboard(
@@ -40,7 +40,7 @@ def main_kb(t: Callable[[str], str], user_id: int | None = None) -> InlineKeyboa
         {'text': t('settings'), 'callback_data': 'settings'},
     ]
 
-    if user_id and user_id in ADMIN_TG_IDS:
+    if user_id and user_id in env.ADMIN_TG_IDS:
         buttons.append({'text': t('admin'), 'callback_data': 'admin_panel'})
     else:
         buttons.append({'text': t('help'), 'url': 'https://t.me/chnddy'})
@@ -49,7 +49,6 @@ def main_kb(t: Callable[[str], str], user_id: int | None = None) -> InlineKeyboa
 
 
 def balance_kb(t: Callable[[str], str], show_renew: bool = False) -> InlineKeyboardMarkup:
-    """Balance screen keyboard, optionally with renew button for expired subs"""
     buttons = [{'text': t('add_funds'), 'callback_data': 'add_funds'}]
 
     if show_renew:
@@ -61,14 +60,12 @@ def balance_kb(t: Callable[[str], str], show_renew: bool = False) -> InlineKeybo
 
 
 def balance_button_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    """Single balance button for notifications"""
     return _build_keyboard([
         {'text': t('balance'), 'callback_data': 'balance'},
     ])
 
 
 def get_renewal_notification_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    """Keyboard for subscription expiry notifications with renewal action"""
     return _build_keyboard([
         {'text': t('renew_now'), 'callback_data': 'renew_subscription'},
         {'text': t('balance'), 'callback_data': 'balance'},
@@ -203,7 +200,6 @@ def get_payment_amounts_keyboard(t: Callable[[str], str], method: str) -> Inline
 
 
 def payment_success_actions(t: Callable[[str], str], has_active_sub: bool) -> InlineKeyboardMarkup:
-    """Next action buttons after successful payment"""
     if has_active_sub:
         return _build_keyboard([
             {'text': t('extend'), 'callback_data': 'renew_subscription'},

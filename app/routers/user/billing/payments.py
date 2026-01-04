@@ -17,10 +17,11 @@ from app.keys.keyboards import (
 from app.db.db import get_session
 from app.payments.manager import PaymentManager
 from app.payments.models import PaymentMethod
-from app.utils.logging import get_logger
-from app.utils.redis import get_redis
-from config import TELEGRAM_STARS_RATE, PLANS, bot, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT
+from app.settings.utils.logging import get_logger
+from app.db.cache import get_redis
+from app.settings.config import env, PLANS
 from ..utils import safe_answer_callback, get_repositories, get_user_balance, format_expire_date
+from app.settings.factory import create_bot
 
 router = Router()
 LOG = get_logger(__name__)
@@ -44,14 +45,12 @@ async def balance_callback(callback: CallbackQuery, t, state: FSMContext):
 
         text = t('balance_text', balance=balance)
 
-        # Check if user had subscription before (even if expired)
         show_renew_button = sub_end is not None and not has_active_sub
 
         if has_active_sub:
             expire_date = format_expire_date(sub_end)
             text += f"\n\n{t('subscription_active_until', expire_date=expire_date)}"
         elif sub_end is not None:
-            # Had subscription before but expired
             expire_date = format_expire_date(sub_end)
             text += f"\n\n{t('subscription_expired_on', expire_date=expire_date)}"
         else:
@@ -93,10 +92,9 @@ async def process_amount_selection(callback: CallbackQuery, t, state: FSMContext
         await callback.message.edit_text(t('enter_amount'), reply_markup=back_balance(t))
         return
 
-    # Validate preset amount
     try:
         amount = Decimal(amount_str)
-        if amount <= 0 or amount < MIN_PAYMENT_AMOUNT or amount > MAX_PAYMENT_AMOUNT:
+        if amount <= 0 or amount < env.MIN_PAYMENT_AMOUNT or amount > env.MAX_PAYMENT_AMOUNT:
             raise ValueError("Invalid preset amount")
     except (ValueError, TypeError) as e:
         LOG.error(f"Invalid preset amount: {amount_str} - {e}")
@@ -114,7 +112,7 @@ async def process_custom_amount(message: Message, state: FSMContext, t):
         amount = Decimal(message.text)
         if amount <= 0:
             raise ValueError("Amount must be positive")
-        if amount < MIN_PAYMENT_AMOUNT or amount > MAX_PAYMENT_AMOUNT:
+        if amount < env.MIN_PAYMENT_AMOUNT or amount > env.MAX_PAYMENT_AMOUNT:
             raise ValueError("Amount out of range")
         if amount.as_tuple().exponent < -2:
             raise ValueError("Too many decimal places")
@@ -134,7 +132,6 @@ async def process_custom_amount(message: Message, state: FSMContext, t):
 
 
 def _build_payment_keyboard(t, method: PaymentMethod, result):
-    """Build inline keyboard for payment based on method type"""
     if method == PaymentMethod.TON:
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=t('payment_sent'), callback_data=f'payment_sent_{result.payment_id}')]
@@ -160,7 +157,6 @@ def _build_payment_keyboard(t, method: PaymentMethod, result):
 
 
 def _build_payment_text(t, method: PaymentMethod, result):
-    """Build payment instruction text based on method type"""
     if method == PaymentMethod.TON:
         return t(
             'ton_payment_instruction',
@@ -172,7 +168,6 @@ def _build_payment_text(t, method: PaymentMethod, result):
 
 
 async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
-    """Process payment creation and send payment instructions"""
     tg_id = msg_or_callback.from_user.id
     is_callback = isinstance(msg_or_callback, CallbackQuery)
 
@@ -201,7 +196,6 @@ async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
             kb = _build_payment_keyboard(t, method, result)
             parse_mode = "HTML" if method == PaymentMethod.TON else None
 
-            # CRITICAL FIX: Always send new message for payment instructions
             if is_callback:
                 await msg_or_callback.message.answer(text, reply_markup=kb, parse_mode=parse_mode)
             else:
@@ -210,7 +204,6 @@ async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
         except (ValueError, OperationalError, SQLTimeoutError) as e:
             LOG.error(f"Payment error for user {tg_id}: {type(e).__name__}: {e}", exc_info=True)
             
-            # CRITICAL FIX: Cancel payment if it was created but gateway failed
             if payment_id:
                 try:
                     redis_client = await get_redis()
@@ -229,7 +222,6 @@ async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
         except Exception as e:
             LOG.error(f"Unexpected payment error for user {tg_id}: {type(e).__name__}: {e}", exc_info=True)
             
-            # CRITICAL FIX: Cancel payment if it was created but gateway failed
             if payment_id:
                 try:
                     redis_client = await get_redis()
@@ -249,6 +241,8 @@ async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
 @router.pre_checkout_query()
 async def pre_checkout(pre_checkout_query: PreCheckoutQuery):
     payload = pre_checkout_query.invoice_payload
+
+    bot = create_bot()
 
     if not payload.startswith("topup_"):
         await bot.answer_pre_checkout_query(
@@ -274,7 +268,7 @@ async def pre_checkout(pre_checkout_query: PreCheckoutQuery):
             )
             return
 
-        if amount < MIN_PAYMENT_AMOUNT or amount > MAX_PAYMENT_AMOUNT:
+        if amount < env.MIN_PAYMENT_AMOUNT or amount > env.MAX_PAYMENT_AMOUNT:
             await bot.answer_pre_checkout_query(
                 pre_checkout_query.id,
                 ok=False,
@@ -312,14 +306,13 @@ async def successful_payment(message: Message, t):
         await message.answer(t('error_creating_payment'))
         return
 
-    rub_amount = Decimal(stars_paid) * Decimal(str(TELEGRAM_STARS_RATE))
+    rub_amount = Decimal(stars_paid) * Decimal(str(env.TELEGRAM_STARS_RATE))
 
     async with get_session() as session:
         try:
             from app.db.models import Payment as PaymentModel, User
             from sqlalchemy import select
 
-            # CRITICAL FIX: Acquire database lock FIRST to prevent race conditions
             result = await session.execute(
                 select(User).where(User.tg_id == tg_id).with_for_update()
             )
@@ -329,7 +322,6 @@ async def successful_payment(message: Message, t):
                 await message.answer(t('user_not_found'))
                 return
 
-            # Find pending Stars payment with lock
             result = await session.execute(
                 select(PaymentModel).where(
                     PaymentModel.tg_id == tg_id,
@@ -341,7 +333,6 @@ async def successful_payment(message: Message, t):
             payment = result.scalar_one_or_none()
 
             if not payment:
-                # Check if already confirmed
                 result = await session.execute(
                     select(PaymentModel).where(
                         PaymentModel.tx_hash == payment_id,
@@ -358,7 +349,6 @@ async def successful_payment(message: Message, t):
                 await message.answer(t('payment_not_found'))
                 return
 
-            # Check if payment expired
             if payment.expires_at and datetime.utcnow() > payment.expires_at:
                 LOG.warning(f"Stars payment {payment.id} expired")
                 payment.status = 'expired'
@@ -366,16 +356,13 @@ async def successful_payment(message: Message, t):
                 await message.answer(t('payment_expired'))
                 return
 
-            # Check if tx_hash already used
             if payment.tx_hash is not None:
                 LOG.warning(f"Payment {payment.id} already has tx_hash: {payment.tx_hash}")
                 await message.answer(t('payment_already_processed'))
                 return
 
-            # Store old balance for logging
             old_balance = user.balance
 
-            # ATOMIC UPDATE
             payment.status = 'confirmed'
             payment.tx_hash = payment_id
             payment.confirmed_at = datetime.utcnow()
@@ -387,7 +374,6 @@ async def successful_payment(message: Message, t):
             LOG.info(f"Stars payment confirmed: payment_id={payment.id}, user={tg_id}, "
                     f"amount={rub_amount}, balance: {old_balance} → {new_balance}")
 
-            # Invalidate cache
             try:
                 user_repo, _ = await get_repositories(session)
                 redis = await user_repo.get_redis()
@@ -412,7 +398,6 @@ async def successful_payment(message: Message, t):
 
 @router.callback_query(F.data.startswith('payment_sent_'))
 async def payment_sent_callback(callback: CallbackQuery, t):
-    """Handle 'Payment Sent' button - check payment immediately"""
     await safe_answer_callback(callback, t('payment_checking'), show_alert=True)
 
     tg_id = callback.from_user.id
@@ -423,17 +408,14 @@ async def payment_sent_callback(callback: CallbackQuery, t):
             redis_client = await get_redis()
             manager = PaymentManager(session, redis_client)
 
-            # Get payment details first
             _, payment_repo = await get_repositories(session)
             payment = await payment_repo.get_payment(payment_id)
 
             if not payment:
                 raise ValueError(f"Payment {payment_id} not found")
 
-            # Check payment immediately
             confirmed = await manager.check_payment(payment_id)
 
-            # Get updated balance
             user_repo, _ = await get_repositories(session)
             balance = await get_user_balance(user_repo, tg_id)
             has_active_sub = await user_repo.has_active_subscription(tg_id)

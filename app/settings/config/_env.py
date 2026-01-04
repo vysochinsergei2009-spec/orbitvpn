@@ -28,6 +28,11 @@ class EnvSettingsFile(BaseSettings):
     YOOKASSA_TEST_SHOP_ID: str
     YOOKASSA_TEST_SECRET_KEY: str
     YOOKASSA_TESTNET: bool = False
+    MIN_PAYMENT_AMOUNT: int = 200
+    MAX_PAYMENT_AMOUNT: int = 100000
+    TELEGRAM_STARS_RATE: float = 1.5
+    FREE_TRIAL_DAYS: int = 3
+    PAYMENT_TIMEOUT_MINUTES: int = 15
     
     def is_admin(self, chat_id: int) -> bool:
         return chat_id in self.ADMIN_TG_IDS
