@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.payments.models import PaymentMethod
 from .models import Payment as PaymentModel, TonTransaction
 from .db import get_session
-from app.settings.utils.logging import get_logger
+from app.settings.log.logging import get_logger
 from .base import BaseRepository
 from app.settings.config import env
 

@@ -3,7 +3,7 @@ from aiogram.types import CallbackQuery
 
 from app.keys.keyboards import sub_kb, myvpn_kb
 from app.db.db import get_session
-from app.settings.utils.logging import get_logger
+from app.settings.log.logging import get_logger
 from app.settings.config import PLANS
 from ..utils import safe_answer_callback, get_repositories, get_user_balance, format_expire_date
 

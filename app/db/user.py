@@ -22,7 +22,7 @@ from app.settings.config import (
     REFERRAL_BONUS,
     REDIS_TTL,
 )
-from app.settings.utils.logging import get_logger
+from app.settings.log.logging import get_logger
 from .base import BaseRepository
 
 LOG = get_logger(__name__)

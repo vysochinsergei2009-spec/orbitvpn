@@ -6,7 +6,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 from app.db.user import UserRepository
 from app.db.payments import PaymentRepository
-from app.settings.utils.logging import get_logger
+from app.settings.log.logging import get_logger
 from app.db.cache import get_redis
 
 LOG = get_logger(__name__)

@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional
 from datetime import datetime
 from app.payments.models import PaymentResult
-from app.settings.utils.logging import get_logger
+from app.settings.log.logging import get_logger
 
 LOG = get_logger(__name__)
 

@@ -7,7 +7,7 @@ import qrcode
 
 from app.keys.keyboards import actions_kb, sub_kb, qr_delete_kb
 from app.db.db import get_session
-from app.settings.utils.logging import get_logger
+from app.settings.log.logging import get_logger
 from app.settings.config import INSTALL_GUIDE_URLS
 from ..utils import safe_answer_callback, get_repositories, update_configs_view
 from app.settings.utils.qr import generate_qr_file

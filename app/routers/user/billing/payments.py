@@ -17,7 +17,7 @@ from app.keys.keyboards import (
 from app.db.db import get_session
 from app.payments.manager import PaymentManager
 from app.payments.models import PaymentMethod
-from app.settings.utils.logging import get_logger
+from app.settings.log.logging import get_logger
 from app.db.cache import get_redis
 from app.settings.config import env, PLANS
 from ..utils import safe_answer_callback, get_repositories, get_user_balance, format_expire_date

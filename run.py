@@ -6,7 +6,7 @@ from app.settings.factory.factory import create_bot
 from app.settings.locales.locales_mw import LocaleMiddleware
 from app.db.cache import init_cache, close_cache
 from app.settings.middlewares.rate_limit import RateLimitMiddleware, cleanup_rate_limit
-from app.settings.utils.logging import get_logger, setup_aiogram_logger
+from app.settings.log.logging import get_logger, setup_aiogram_logger
 from app.db.db import close_db
 from app.db.init import init_database
 from app.settings.tasks import tasker
