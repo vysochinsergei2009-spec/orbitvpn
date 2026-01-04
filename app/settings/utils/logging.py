@@ -1,5 +1,5 @@
 import logging
-from config import IS_LOGGING, LOG_LEVEL, LOG_AIOGRAM
+from app.settings.config import IS_LOGGING, LOG_LEVEL, LOG_AIOGRAM
 
 
 def get_logger(name: str):

@@ -9,7 +9,7 @@ from app.repo.db import get_session
 from app.payments.manager import PaymentManager
 from app.payments.models import PaymentMethod
 from app.repo.models import TonTransaction
-from app.utils.redis import get_redis
+from app.db.cache import get_redis
 from config import TON_ADDRESS, TONAPI_KEY, PAYMENT_TIMEOUT_MINUTES
 
 LOG = logging.getLogger(__name__)

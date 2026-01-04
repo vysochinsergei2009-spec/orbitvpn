@@ -3,7 +3,7 @@ from typing import Any, Awaitable, Callable, Dict
 from aiogram import BaseMiddleware
 from aiogram.types import CallbackQuery, Message
 
-from .config import settings
+from app.settings.config import env
 
 
 class AdminMiddleware(BaseMiddleware):
@@ -15,7 +15,7 @@ class AdminMiddleware(BaseMiddleware):
     ) -> Any:
         user_id = event.from_user.id
 
-        if user_id not in ADMIN_TG_IDS:
+        if user_id not in env.ADMIN_TG_IDS:
             t = data.get('t')
             if t:
                 access_denied_text = t('access_denied')

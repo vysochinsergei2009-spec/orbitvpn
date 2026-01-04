@@ -65,12 +65,6 @@ class UserRepository(BaseRepository):
     # Balance
     # ----------------------------
     async def get_balance(self, tg_id: int) -> Decimal:
-        """
-        Get user balance with Redis caching and automatic fallback to database.
-
-        CRITICAL: Redis failures are handled gracefully - if Redis is unavailable,
-        the method falls back to database without failing.
-        """
         redis = await self.get_redis()
 
         # Try to get from cache, but don't fail if Redis is down
