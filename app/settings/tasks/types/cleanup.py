@@ -4,9 +4,9 @@ from sqlalchemy import select, update, func
 
 from app.db.db import get_session
 from app.db.models import User, Config
-from app.api import ClientApiManager
+from app.api.client import ClientApiManager
 from app.models.server import Server, ServerTypes
-from app.settings.config import MARZBAN_BASE_URL, MARZBAN_USERNAME, MARZBAN_PASSWORD
+from app.settings.config import env
 from app.db.cache import get_redis
 
 LOG = logging.getLogger(__name__)
@@ -24,27 +24,24 @@ async def cleanup_expired_configs(days_threshold: int = 14) -> dict:
         async with get_session() as session:
             redis = await get_redis()
             
-            server = Server(
-                id="default_marzban",
-                name="Default Marzban",
-                types=ServerTypes.MARZBAN,
-                data={
-                    "host": MARZBAN_BASE_URL,
-                    "username": MARZBAN_USERNAME,
-                    "password": MARZBAN_PASSWORD,
-                },
+            access_token = await ClientApiManager.authenticate(
+                host=env.PANEL_HOST,
+                panel_type=env.VPN_PANEL_TYPE,
+                username=env.PANEL_USERNAME,
+                password=env.PANEL_PASSWORD
             )
-            
-            from app.api.clients.marzban import MarzbanApiManager
-            api = MarzbanApiManager(host=server.data["host"])
-            token = await api.get_token(
-                username=server.data["username"], password=server.data["password"]
-            )
-            server.access = token.access_token if token else None
 
-            if not server.access:
-                LOG.error("Failed to get Marzban access token. Aborting cleanup.")
+            if not access_token:
+                LOG.error("Failed to get panel access token. Aborting cleanup.")
                 return stats
+
+            server = Server(
+                id="main",
+                name="Main Panel",
+                types=ServerTypes(env.VPN_PANEL_TYPE),
+                data={"host": env.PANEL_HOST},
+                access=access_token
+            )
 
             api_manager = ClientApiManager()
 
@@ -82,9 +79,9 @@ async def cleanup_expired_configs(days_threshold: int = 14) -> dict:
 
                     try:
                         await api_manager.remove_user(server, username)
-                        LOG.info(f"Deleted Marzban user {username}")
+                        LOG.info(f"Deleted panel user {username}")
                     except Exception as e:
-                        LOG.warning(f"Failed to delete Marzban user {username}: {e} (continuing with DB cleanup)")
+                        LOG.warning(f"Failed to delete panel user {username}: {e} (continuing with DB cleanup)")
 
                     config.deleted = True
 

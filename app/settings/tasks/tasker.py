@@ -20,6 +20,7 @@ async def start(bot: Bot) -> None:
     
     scheduler.add_job(
         check_ton_transactions,
+        trigger=IntervalTrigger(minutes=5),
         id="ton_transactions",
         replace_existing=True,
         max_instances=1,
