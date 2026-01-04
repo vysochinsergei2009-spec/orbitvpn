@@ -5,7 +5,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
 from .gateway import *
-from app.payments.models import PaymentResult, PaymentMethod
+from app.models.payments import PaymentResult, PaymentMethod
 from app.db.payments import PaymentRepository
 from app.db.user import UserRepository
 from app.db.db import get_session
@@ -64,7 +64,7 @@ class PaymentManager:
 
             if method == PaymentMethod.TON:
                 comment = uuid.uuid4().hex[:10]
-                from app.settings.utils.rates import get_ton_price
+                from app.settings.utils import get_ton_price
                 ton_price = await get_ton_price()
                 expected_crypto_amount = (Decimal(amount) / ton_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 

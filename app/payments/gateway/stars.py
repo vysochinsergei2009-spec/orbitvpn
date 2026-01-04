@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional
 from aiogram.types import LabeledPrice
 from app.payments.gateway.base import BasePaymentGateway
-from app.payments.models import PaymentResult, PaymentMethod
+from app.models.payments import PaymentResult, PaymentMethod
 from app.db.payments import PaymentRepository
 from app.settings.config import env
 

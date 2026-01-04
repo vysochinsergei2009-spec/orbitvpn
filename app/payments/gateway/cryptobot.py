@@ -4,9 +4,9 @@ from typing import Optional
 from aiogram import Bot
 from aiocryptopay import AioCryptoPay, Networks
 from app.payments.gateway.base import BasePaymentGateway
-from app.payments.models import PaymentResult, PaymentMethod
+from app.models.payments import PaymentResult, PaymentMethod
 from app.db.payments import PaymentRepository
-from app.settings.utils.rates import get_usdt_rub_rate
+from app.settings.utils import get_usdt_rub_rate
 from app.settings.config import env
 
 LOG = logging.getLogger(__name__)

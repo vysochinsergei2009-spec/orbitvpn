@@ -10,7 +10,7 @@ from app.db.db import get_session
 from app.settings.log.logging import get_logger
 from app.settings.config import INSTALL_GUIDE_URLS
 from ..utils import safe_answer_callback, get_repositories, update_configs_view
-from app.settings.utils.qr import generate_qr_file
+from app.settings.utils import generate_qr_file
 
 
 router = Router()

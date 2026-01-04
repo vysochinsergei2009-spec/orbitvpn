@@ -8,7 +8,7 @@ from yookassa import Configuration, Payment as YooKassaPayment
 from urllib3.exceptions import ConnectTimeoutError, ReadTimeoutError, TimeoutError as Urllib3TimeoutError
 from requests.exceptions import ConnectTimeout, ReadTimeout, Timeout as RequestsTimeout
 from app.payments.gateway.base import BasePaymentGateway
-from app.payments.models import PaymentResult, PaymentMethod
+from app.models.payments import PaymentResult, PaymentMethod
 from app.db.payments import PaymentRepository
 from app.settings.config import env
 
