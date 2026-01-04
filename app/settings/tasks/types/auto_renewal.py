@@ -5,11 +5,11 @@ from sqlalchemy import select
 from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 
-from app.repo.db import get_session
-from app.repo.models import User
-from app.repo.user import UserRepository
-from app.utils.redis import get_redis
-from app.locales.locales import get_translator
+from app.db.db import get_session
+from app.db.models import User
+from app.db.user import UserRepository
+from app.db.cache import get_redis
+from app.settings.locales.locales import get_translator
 from config import PLANS
 
 LOG = logging.getLogger(__name__)

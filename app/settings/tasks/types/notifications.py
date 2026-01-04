@@ -7,10 +7,10 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 
 from app.db.db import get_session
 from app.db.models import User
-from app.utils.redis import get_redis
+from app.db.cache import get_redis
 from app.settings.locales import get_translator
 from app.keys.keyboards import get_renewal_notification_keyboard
-from config import PLANS
+from app.settings.config import PLANS
 
 LOG = logging.getLogger(__name__)
 

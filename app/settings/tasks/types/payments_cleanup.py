@@ -1,7 +1,7 @@
 import logging
-from app.repo.db import get_session
-from app.repo.payments import PaymentRepository
-from app.utils.redis import get_redis
+from app.db.db import get_session
+from app.db.payments import PaymentRepository
+from app.db.cache import get_redis
 
 LOG = logging.getLogger(__name__)
 

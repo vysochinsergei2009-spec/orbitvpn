@@ -6,7 +6,7 @@ from app.db.db import get_session
 from app.db.models import User, Config
 from app.api import ClientApiManager
 from app.models.server import Server, ServerTypes
-from config import MARZBAN_BASE_URL, MARZBAN_USERNAME, MARZBAN_PASSWORD
+from app.settings.config import MARZBAN_BASE_URL, MARZBAN_USERNAME, MARZBAN_PASSWORD
 from app.db.cache import get_redis
 
 LOG = logging.getLogger(__name__)

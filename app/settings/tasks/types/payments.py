@@ -5,12 +5,12 @@ from pytonapi import AsyncTonapi
 from pytonapi.utils import to_amount, raw_to_userfriendly
 from sqlalchemy.exc import IntegrityError
 
-from app.repo.db import get_session
+from app.db.db import get_session
 from app.payments.manager import PaymentManager
 from app.payments.models import PaymentMethod
-from app.repo.models import TonTransaction
+from app.db.models import TonTransaction
 from app.db.cache import get_redis
-from config import TON_ADDRESS, TONAPI_KEY, PAYMENT_TIMEOUT_MINUTES
+from app.settings.config import env
 
 LOG = logging.getLogger(__name__)
 
@@ -22,12 +22,12 @@ async def fetch_new_transactions(tonapi: AsyncTonapi, limit: int = 50) -> list:
     
     try:
         result = await tonapi.blockchain.get_account_transactions(
-            account_id=TON_ADDRESS,
+            account_id=env.TON_ADDRESS,
             limit=limit
         )
         txs = []
         now = datetime.utcnow()
-        min_time = now - timedelta(minutes=PAYMENT_TIMEOUT_MINUTES * 2)
+        min_time = now - timedelta(minutes=env.PAYMENT_TIMEOUT_MINUTES * 2)
 
         for tx in result.transactions:
             lt = int(tx.lt)
@@ -119,7 +119,7 @@ async def mark_failed_payments() -> None:
 
 async def check_ton_transactions() -> None:
     try:
-        tonapi = AsyncTonapi(api_key=TONAPI_KEY)
+        tonapi = AsyncTonapi(api_key=env.TONAPI_KEY)
         
         txs = await fetch_new_transactions(tonapi)
         await insert_transactions(txs)

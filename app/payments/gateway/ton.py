@@ -5,7 +5,7 @@ from aiogram import Bot
 from app.payments.gateway.base import BasePaymentGateway
 from app.payments.models import PaymentResult, PaymentMethod
 from app.db.payments import PaymentRepository
-from app.settings.config import TON_ADDRESS
+from app.settings.config import env
 
 LOG = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class TonGateway(BasePaymentGateway):
             LOG.error(f"Error fetching TON price: {e}")
             raise ValueError("Failed to fetch TON price")
 
-        wallet = TON_ADDRESS
+        wallet = env.TON_ADDRESS
         text = (
             t("ton_payment_intro") + "\n\n"
             + t("ton_send_amount", expected_ton=expected_ton, amount=amount) + "\n"
