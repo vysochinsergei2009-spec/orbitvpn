@@ -14,7 +14,7 @@ class EnvSettingsFile(BaseSettings):
     DATABASE_PORT: str = 5432
     REDIS_URL: str = "redis://localhost"
     PORT: int = 5000
-    VPN_PANEL_TYPE: str = "marzban"
+    VPN_PANEL_TYPE: str = "marzneshin"
     PANEL_HOST: str
     PANEL_USERNAME: str
     PANEL_PASSWORD: str
@@ -35,6 +35,9 @@ class EnvSettingsFile(BaseSettings):
     FREE_TRIAL_DAYS: int = 3
     PAYMENT_TIMEOUT_MINUTES: int = 15
     REFERRAL_BONUS: int
+    IS_LOGGING: bool = True
+    LOG_LEVEL: str = "INFO"
+    LOG_AIOGRAM: bool = False
     
     def is_admin(self, chat_id: int) -> bool:
         return chat_id in self.ADMIN_TG_IDS
