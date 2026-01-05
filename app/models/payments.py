@@ -26,8 +26,8 @@ class PaymentResult:
     wallet: Optional[str] = None
     comment: Optional[str] = None
     expected_crypto_amount: Optional[Decimal] = None
-    pay_url: Optional[str] = None  # For CryptoBot invoice URL
-    invoice_id: Optional[str] = None  # For CryptoBot invoice tracking
+    pay_url: Optional[str] = None
+    invoice_id: Optional[str] = None
 
 @dataclass
 class Payment:

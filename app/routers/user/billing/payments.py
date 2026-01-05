@@ -15,7 +15,7 @@ from app.keys.keyboards import (
     payment_success_actions
 )
 from app.db.db import get_session
-from app.payments.manager import PaymentManager
+from app.payments import PaymentManager
 from app.models.payments import PaymentMethod
 from app.settings.log.logging import get_logger
 from app.db.cache import get_redis
