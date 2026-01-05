@@ -1,7 +1,7 @@
 from typing import Any, Awaitable, Callable, Dict
 from aiogram import BaseMiddleware
 from aiogram.types import Update, Message, CallbackQuery
-from app.db.db import UserRepository
+from app.db.user import UserRepository
 
 class BlacklistMiddleware(BaseMiddleware):
     

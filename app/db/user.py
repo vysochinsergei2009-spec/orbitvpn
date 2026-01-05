@@ -31,23 +31,29 @@ class UserRepository(BaseRepository):
     def _validate_username(username: str) -> bool:
         return bool(re.match(r'^orbit_\d+$', username))
 
-    async def _get_server(self) -> Server:
+    async def _get_api_and_server(self) -> tuple[ClientApiManager, Server]:
+        if env.VPN_PANEL_TYPE == "marzneshin":
+            from app.api.clients.marzneshin import MarzneshinApiManager
+            api_client = MarzneshinApiManager(host=env.PANEL_HOST)
+        else:
+            from app.api.clients.marzban import MarzbanApiManager
+            api_client = MarzbanApiManager(host=env.PANEL_HOST)
+        
+        token_response = await api_client.get_token(env.PANEL_USERNAME, env.PANEL_PASSWORD)
+        
+        if not token_response or not token_response.access_token:
+            raise ValueError(f"Failed to authenticate with {env.VPN_PANEL_TYPE} panel")
+        
         server = Server(
             id="main",
             name="Main Panel",
             types=ServerTypes(env.VPN_PANEL_TYPE),
             data={"host": env.PANEL_HOST},
-            access=None
+            access=token_response.access_token
         )
         
-        api_manager = ClientApiManager(server)
-        access_token = await api_manager.get_token(env.PANEL_USERNAME, env.PANEL_PASSWORD)
-        
-        if not access_token:
-            raise ValueError(f"Failed to authenticate with {env.VPN_PANEL_TYPE} panel")
-        
-        server.access = access_token
-        return server
+        api_manager = ClientApiManager()
+        return api_manager, server
 
     async def get_balance(self, tg_id: int) -> Decimal:
         redis = await self.get_redis()
@@ -193,25 +199,30 @@ class UserRepository(BaseRepository):
 
     async def _safe_remove_panel_user(self, username: str):
         try:
-            server = await self._get_server()
-            api = ClientApiManager(server)
-            await api.remove_user(username)
+            api, server = await self._get_api_and_server()
+            await api.remove_user(server, username)
             LOG.info("Removed panel user %s", username)
         except Exception as e:
             LOG.warning("Failed to remove panel user %s: %s", username, e)
             try:
-                server = await self._get_server()
-                api = ClientApiManager(server)
-                data = {"expire": int(time.time() - 86400)}
-                await api.modify_user(username, data)
+                api, server = await self._get_api_and_server()
+                
+                if env.VPN_PANEL_TYPE == "marzneshin":
+                    data = {
+                        "expire_strategy": "fixed_date",
+                        "expire_date": datetime.fromtimestamp(time.time() - 86400).isoformat()
+                    }
+                else:
+                    data = {"expire": int(time.time() - 86400)}
+                
+                await api.modify_user(server, username, data)
                 LOG.info("Expired panel user %s as fallback", username)
             except Exception as ex:
                 LOG.error("Failed to expire panel user %s during fallback: %s", username, ex)
 
     async def _safe_modify_panel_user(self, username: str, expire_ts: int):
         try:
-            server = await self._get_server()
-            api = ClientApiManager(server)
+            api, server = await self._get_api_and_server()
             
             if env.VPN_PANEL_TYPE == "marzneshin":
                 data = {
@@ -221,7 +232,7 @@ class UserRepository(BaseRepository):
             else:
                 data = {"expire": expire_ts}
             
-            await api.modify_user(username, data)
+            await api.modify_user(server, username, data)
             LOG.info("Modified panel user %s expire=%s", username, expire_ts)
         except Exception as e:
             LOG.error("Failed to modify panel user %s expire=%s: %s", username, expire_ts, e)
@@ -439,11 +450,10 @@ class UserRepository(BaseRepository):
 
             days_remaining = max(1, int((user.subscription_end.timestamp() - time.time()) / 86400) + 1)
 
-        server = await self._get_server()
-        api = ClientApiManager(server)
+        api, server = await self._get_api_and_server()
 
         if env.VPN_PANEL_TYPE == "marzneshin":
-            configs = await api.get_configs()
+            configs = await api.get_configs(server)
             if not configs:
                 raise ValueError("No services available in Marzneshin panel")
             
@@ -468,7 +478,7 @@ class UserRepository(BaseRepository):
             }
 
         try:
-            panel_user = await api.create_user(data)
+            panel_user = await api.create_user(server, data)
             
             if not panel_user or not panel_user.subscription_url:
                 raise ValueError("No subscription URL returned from panel")
@@ -479,8 +489,8 @@ class UserRepository(BaseRepository):
             error_str = str(e).lower()
             if "already exists" in error_str or "409" in error_str:
                 LOG.warning("Panel user %s already exists; attempting remove+recreate", username)
-                await api.remove_user(username)
-                panel_user = await api.create_user(data)
+                await api.remove_user(server, username)
+                panel_user = await api.create_user(server, data)
                 if not panel_user or not panel_user.subscription_url:
                     raise ValueError("No subscription URL after recreate")
                 vless_link = panel_user.subscription_url
@@ -498,7 +508,7 @@ class UserRepository(BaseRepository):
             )
             user = result.scalar_one_or_none()
             if not user or not user.subscription_end or time.time() >= user.subscription_end.timestamp():
-                await api.remove_user(username)
+                await api.remove_user(server, username)
                 raise ValueError("Subscription expired during config creation")
 
             result = await session.execute(
@@ -506,7 +516,7 @@ class UserRepository(BaseRepository):
             )
             count = result.scalar()
             if count >= 1:
-                await api.remove_user(username)
+                await api.remove_user(server, username)
                 raise ValueError("Max configs reached during creation")
 
             new_name = f"Configuration {count + 1}"

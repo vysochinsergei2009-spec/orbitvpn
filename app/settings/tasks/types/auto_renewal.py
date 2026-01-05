@@ -10,7 +10,7 @@ from app.db.models import User
 from app.db.user import UserRepository
 from app.db.cache import get_redis
 from app.settings.locales.locales import get_translator
-from config import PLANS
+from app.settings.config import PLANS
 
 LOG = logging.getLogger(__name__)
 

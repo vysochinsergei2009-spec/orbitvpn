@@ -3,7 +3,6 @@ from typing import Optional
 
 
 def ensure_utc(dt: Optional[datetime | str]) -> Optional[datetime]:
-    """Ensure datetime is UTC timezone-aware"""
     if dt is None:
         return None
 
@@ -22,7 +21,6 @@ def ensure_utc(dt: Optional[datetime | str]) -> Optional[datetime]:
 
 
 def format_bytes(bytes: int) -> str:
-    """Convert bytes to human readable format"""
     if not bytes:
         bytes = 0
     for unit in ["bytes", "KB", "MB", "GB", "TB"]:
@@ -33,7 +31,6 @@ def format_bytes(bytes: int) -> str:
 
 
 def format_date_diff(reference_date: datetime, date: Optional[datetime]) -> str:
-    """Calculate time difference between dates"""
     if not date:
         return "➖"
 
