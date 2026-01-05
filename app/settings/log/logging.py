@@ -1,11 +1,11 @@
 import logging
-from app.settings.config import IS_LOGGING, LOG_LEVEL, LOG_AIOGRAM
+from app.settings.config import env
 
 
 def get_logger(name: str):
     logger = logging.getLogger(name)
 
-    if not IS_LOGGING:
+    if not env.IS_LOGGING:
         logger.disabled = True
         return logger
 
@@ -17,7 +17,7 @@ def get_logger(name: str):
         )
         handler.setFormatter(formatter)
         root_logger.addHandler(handler)
-        root_logger.setLevel(getattr(logging, LOG_LEVEL.upper(), logging.INFO))
+        root_logger.setLevel(getattr(logging, env.LOG_LEVEL.upper(), logging.INFO))
 
     return logger
 
@@ -25,7 +25,7 @@ def get_logger(name: str):
 def setup_aiogram_logger():
     aiolog = logging.getLogger("aiogram")
 
-    if not LOG_AIOGRAM:
+    if not env.LOG_AIOGRAM:
         aiolog.disabled = True
         return
 
@@ -38,4 +38,4 @@ def setup_aiogram_logger():
     handler.setFormatter(formatter)
 
     aiolog.addHandler(handler)
-    aiolog.setLevel(getattr(logging, LOG_LEVEL.upper(), logging.INFO))
+    aiolog.setLevel(getattr(logging, env.LOG_LEVEL.upper(), logging.INFO))

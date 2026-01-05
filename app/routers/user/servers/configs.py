@@ -1,14 +1,11 @@
-from io import BytesIO
-
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, LinkPreviewOptions, BufferedInputFile
 from sqlalchemy.exc import OperationalError, TimeoutError as SQLTimeoutError
-import qrcode
 
 from app.keys.keyboards import actions_kb, sub_kb, qr_delete_kb
 from app.db.db import get_session
 from app.settings.log.logging import get_logger
-from app.settings.config import INSTALL_GUIDE_URLS
+from app.settings.config import LINKS
 from ..utils import safe_answer_callback, get_repositories, update_configs_view
 from app.settings.utils import generate_qr_file
 
@@ -75,9 +72,13 @@ async def config_selected(callback: CallbackQuery, t, lang: str):
             await callback.message.edit_text(t('config_not_found'), reply_markup=actions_kb(t, cfg_id))
             return
 
-        install_url = INSTALL_GUIDE_URLS.get(lang, INSTALL_GUIDE_URLS["ru"])
-
-        text = f"{t('your_config')}\n\n{t('config_selected')}\n<pre><code>{cfg['vless_link']}</code></pre>\n<a href='{install_url}'>{t('how_to_install')}</a>"
+        install_url = LINKS["install"].get(lang, LINKS["install"]["ru"])
+        text = (
+            f"{t('your_config')}\n\n"
+            f"{t('config_selected')}\n"
+            f"<pre><code>{cfg['vless_link']}</code></pre>\n"
+            f"<a href='{install_url}'>{t('how_to_install')}</a>"
+        )
         await callback.message.edit_text(
             text,
             parse_mode="HTML",
