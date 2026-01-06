@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from app.db.db import get_session
 from app.payments.manager import PaymentManager
 from app.models.payments import PaymentMethod
-from app.db.models import TonTransaction
+from app.models.db import TonTransaction
 from app.db.cache import get_redis
 from app.settings.config import env
 

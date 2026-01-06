@@ -8,7 +8,7 @@ from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.payments import PaymentMethod
-from .models import Payment as PaymentModel, TonTransaction
+from ..models.db import Payment as PaymentModel, TonTransaction
 from .db import get_session
 from app.settings.log.logging import get_logger
 from .base import BaseRepository

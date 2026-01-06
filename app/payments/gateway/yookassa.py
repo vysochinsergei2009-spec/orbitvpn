@@ -193,7 +193,7 @@ class YooKassaGateway(BasePaymentGateway):
 
     async def check_payment(self, payment_id: int) -> bool:
         try:
-            from app.db.models import Payment as PaymentModel, User
+            from app.models.db import Payment as PaymentModel, User
             from sqlalchemy import select
 
             payment = await self.payment_repo.get_payment(payment_id)

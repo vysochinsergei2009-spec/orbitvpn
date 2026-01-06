@@ -32,7 +32,7 @@ class BasePaymentGateway(ABC):
         amount: Decimal,
         allow_expired: bool = False
     ) -> bool:
-        from app.db.models import Payment as PaymentModel, User
+        from app.models.db import Payment as PaymentModel, User
         from sqlalchemy import select
 
         try:

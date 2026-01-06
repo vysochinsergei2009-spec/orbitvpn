@@ -308,7 +308,7 @@ async def successful_payment(message: Message, t):
 
     async with get_session() as session:
         try:
-            from app.db.models import Payment as PaymentModel, User
+            from app.models.db import Payment as PaymentModel, User
             from sqlalchemy import select
 
             result = await session.execute(

@@ -8,7 +8,7 @@ from urllib.parse import urlparse, urlunparse
 
 from sqlalchemy import select, update, func
 
-from .models import User, Config
+from ..models.db import User, Config
 from .db import get_session
 from app.api.client import ClientApiManager
 from app.models.server import Server, ServerTypes
@@ -444,11 +444,13 @@ class UserRepository(BaseRepository):
                     Config.deleted == False
                 )
             )
-            count = result.scalar()
-            if count >= 1:
+            if result.scalar() >= 1:
                 raise ValueError("Max configs reached (limit: 1)")
 
-            days_remaining = max(1, int((user.subscription_end.timestamp() - time.time()) / 86400) + 1)
+            days_remaining = max(
+                1,
+                int((user.subscription_end.timestamp() - time.time()) / 86400) + 1
+            )
 
         api, server = await self._get_api_and_server()
 
@@ -456,16 +458,16 @@ class UserRepository(BaseRepository):
             configs = await api.get_configs(server)
             if not configs:
                 raise ValueError("No services available in Marzneshin panel")
-            
-            service_ids = [service.id for service in configs]
-            
+
             data = {
                 "username": username,
                 "expire_strategy": "fixed_date",
-                "expire_date": datetime.fromtimestamp(time.time() + days_remaining * 86400).isoformat(),
+                "expire_date": datetime.fromtimestamp(
+                    time.time() + days_remaining * 86400
+                ).isoformat(),
                 "data_limit": 300 * 1024 * 1024 * 1024,
                 "data_limit_reset_strategy": "month",
-                "service_ids": service_ids,
+                "service_ids": [s.id for s in configs],
             }
         else:
             data = {
@@ -474,33 +476,34 @@ class UserRepository(BaseRepository):
                 "data_limit": 300 * 1024 * 1024 * 1024,
                 "data_limit_reset_strategy": "month",
                 "ip_limit": 2,
-                "proxies": {"vless": {"flow": ""}}
+                "proxies": {"vless": {"flow": ""}},
             }
 
         try:
             panel_user = await api.create_user(server, data)
-            
-            if not panel_user or not panel_user.subscription_url:
-                raise ValueError("No subscription URL returned from panel")
-            
-            vless_link = panel_user.subscription_url
-
         except Exception as e:
-            error_str = str(e).lower()
-            if "already exists" in error_str or "409" in error_str:
-                LOG.warning("Panel user %s already exists; attempting remove+recreate", username)
+            if "already exists" in str(e).lower() or "409" in str(e):
+                LOG.warning("Panel user %s already exists; recreating", username)
                 await api.remove_user(server, username)
                 panel_user = await api.create_user(server, data)
-                if not panel_user or not panel_user.subscription_url:
-                    raise ValueError("No subscription URL after recreate")
-                vless_link = panel_user.subscription_url
             else:
                 LOG.error("Panel create_user failed for %s: %s", username, e)
                 raise
 
-        if "#OrbitVPN" not in vless_link:
-            parsed = urlparse(vless_link)
-            vless_link = urlunparse(parsed._replace(fragment="OrbitVPN"))
+        vless_links = getattr(panel_user, "links", None)
+        if not vless_links:
+            raise ValueError("No VLESS links returned from panel")
+
+        vless_link = vless_links[0]
+        parsed = urlparse(vless_link)
+        vless_link = urlunparse(parsed._replace(fragment="OrbitVPN"))
+
+        return {
+            "username": username,
+            "vless": vless_link,
+            "expire_at": user.subscription_end,
+        }
+
 
         async with get_session() as session:
             result = await session.execute(

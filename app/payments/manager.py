@@ -37,7 +37,7 @@ class PaymentManager:
         chat_id: Optional[int] = None,
     ) -> PaymentResult:
         try:
-            from app.db.models import User
+            from app.models.db import User
             from sqlalchemy import select
 
             result = await self.session.execute(

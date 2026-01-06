@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, update, func
 
 from app.db.db import get_session
-from app.db.models import User, Config
+from app.models.db import User, Config
 from app.api.client import ClientApiManager
 from app.models.server import Server, ServerTypes
 from app.settings.config import env

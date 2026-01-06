@@ -6,7 +6,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 
 from app.db.db import get_session
-from app.db.models import User
+from app.models.db import User
 from app.db.cache import get_redis
 from app.settings.locales import get_translator
 from app.keys.keyboards import get_renewal_notification_keyboard

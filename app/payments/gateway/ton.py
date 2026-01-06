@@ -94,7 +94,7 @@ class TonGateway(BasePaymentGateway):
         )
 
         if confirmed:
-            from app.db.models import User
+            from app.models.db import User
             from sqlalchemy import select
 
             async with self.session.begin():
