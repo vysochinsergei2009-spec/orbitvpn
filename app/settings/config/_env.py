@@ -38,6 +38,7 @@ class EnvSettingsFile(BaseSettings):
     IS_LOGGING: bool = True
     LOG_LEVEL: str = "INFO"
     LOG_AIOGRAM: bool = False
+    PUBLIC_SUB_URL: str = "https://cdn.orbitcorp.space"
     
     def is_admin(self, chat_id: int) -> bool:
         return chat_id in self.ADMIN_TG_IDS
