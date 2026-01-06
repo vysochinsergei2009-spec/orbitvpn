@@ -10,7 +10,6 @@ LOG = get_logger(__name__)
 
 @dataclass
 class MarzbanInstance:
-    """Simplified dataclass to hold Marzban instance details."""
     id: str = "default"
     name: str = "Default Instance"
     base_url: str = field(default=MARZBAN_BASE_URL)
@@ -52,7 +51,6 @@ class MarzbanClient:
         self._instance = MarzbanInstance()
 
     def _get_active_instances(self) -> List[MarzbanInstance]:
-        # This method now returns a list with the single, hardcoded instance.
         return [self._instance]
 
     def _get_or_create_api(self, instance: MarzbanInstance) -> MarzbanAPI:
@@ -175,7 +173,7 @@ class MarzbanClient:
 
     async def get_best_instance_and_node(
         self,
-        manual_instance_id: Optional[str] = None # This is now ignored, but kept for compatibility
+        manual_instance_id: Optional[str] = None
     ) -> Tuple[MarzbanInstance, MarzbanAPI, Optional[int]]:
         instance = self._instance
 
@@ -184,15 +182,12 @@ class MarzbanClient:
 
         api = self._get_or_create_api(instance)
         
-        # Automatic selection: find least loaded node across all instances
         all_metrics: List[NodeLoadMetrics] = await self._get_node_metrics(instance, api)
 
         if not all_metrics:
-            # Fallback to first available instance without node selection
             LOG.warning("No node metrics available, using instance without node selection")
             return instance, api, None
 
-        # Sort by load score (ascending = least loaded first)
         all_metrics.sort(key=lambda m: m.load_score)
         best_metric = all_metrics[0]
 
@@ -211,40 +206,19 @@ class MarzbanClient:
         max_ips: Optional[int] = None,
         manual_instance_id: Optional[str] = None
     ):
-        """
-        Create a new VPN user on the least loaded node.
-
-        Args:
-            username: Unique username for the user
-            days: Subscription duration in days
-            data_limit: Traffic limit in GB
-            max_ips: Maximum concurrent IPs (devices) allowed. Defaults to MAX_IPS_PER_CONFIG from config
-            manual_instance_id: Optional instance ID for manual selection (ignored)
-
-        Returns:
-            User object from Marzban API with subscription links
-
-        Raises:
-            ValueError: If user creation fails or no instances available
-        """
         instance, api, node_id = await self.get_best_instance_and_node(manual_instance_id)
 
-        # Use default from config if not specified
         if max_ips is None:
             max_ips = MAX_IPS_PER_CONFIG
 
         try:
-            # Note: aiomarzban v1.0.3 doesn't support ip_limit in UserCreate model
-            # We need to manually add it to the request payload
 
-            # First, prepare the user data using the standard method
             from aiomarzban.models import UserCreate, UserStatusCreate
             from aiomarzban.utils import future_unix_time, gb_to_bytes
             from aiomarzban.enums import Methods
 
             expire = future_unix_time(days=days)
 
-            # Create the user data model
             user_data = UserCreate(
                 proxies=api.default_proxies,
                 expire=expire,
@@ -255,14 +229,11 @@ class MarzbanClient:
                 status=UserStatusCreate.active,
             )
 
-            # Convert to dict and add ip_limit (not supported by aiomarzban model)
             payload = user_data.model_dump()
             payload['ip_limit'] = max_ips
 
-            # Make the request directly using the API's internal method
             resp = await api._request(Methods.POST, "/user", data=payload)
 
-            # Parse response manually
             from aiomarzban.models import UserResponse
             new_user = UserResponse(**resp)
 
@@ -281,13 +252,6 @@ class MarzbanClient:
             raise
 
     async def remove_user(self, username: str, instance_id: Optional[str] = None):
-        """
-        Remove a user from Marzban.
-
-        Args:
-            username: Username to remove
-            instance_id: If known, specify the instance (ignored)
-        """
         instance = self._instance
         try:
             api = self._get_or_create_api(instance)
@@ -299,16 +263,6 @@ class MarzbanClient:
 
 
     async def get_user(self, username: str, instance_id: Optional[str] = None):
-        """
-        Get user info from Marzban.
-
-        Args:
-            username: Username to fetch
-            instance_id: If known, specify the instance (ignored)
-
-        Returns:
-            User object or None if not found
-        """
         instance = self._instance
         try:
             api = self._get_or_create_api(instance)
@@ -325,41 +279,26 @@ class MarzbanClient:
         max_ips: Optional[int] = None,
         **kwargs
     ):
-        """
-        Modify user settings in Marzban.
-
-        Args:
-            username: Username to modify
-            instance_id: If known, specify the instance (ignored)
-            max_ips: Maximum concurrent IPs (devices) allowed
-            **kwargs: Parameters to update (expire, data_limit, etc.)
-        """
         instance = self._instance
         try:
             api = self._get_or_create_api(instance)
 
-            # If max_ips is specified, we need to add it to the payload manually
             if max_ips is not None:
                 from aiomarzban.models import UserModify
                 from aiomarzban.utils import gb_to_bytes
                 from aiomarzban.enums import Methods
 
-                # Convert data_limit to bytes if present
                 if 'data_limit' in kwargs and kwargs['data_limit'] is not None:
                     kwargs['data_limit'] = gb_to_bytes(kwargs['data_limit'])
 
-                # Create UserModify model
                 user_data = UserModify(**kwargs)
 
-                # Convert to dict and add ip_limit
                 payload = user_data.model_dump(exclude_none=True)
                 payload['ip_limit'] = max_ips
 
-                # Make request directly
                 await api._request(Methods.PUT, f"/user/{username}", data=payload)
                 LOG.info(f"Modified user {username} on instance {instance.id} (max_ips: {max_ips})")
             else:
-                # Use standard method if no ip_limit needed
                 await api.modify_user(username, **kwargs)
                 LOG.info(f"Modified user {username} on instance {instance.id}")
 
