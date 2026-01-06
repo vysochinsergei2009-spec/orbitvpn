@@ -4,7 +4,7 @@ import asyncio
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
-from gateway import *
+from .gateway import *
 from app.payments.models import PaymentResult, PaymentMethod
 from app.repo.payments import PaymentRepository
 from app.repo.user import UserRepository

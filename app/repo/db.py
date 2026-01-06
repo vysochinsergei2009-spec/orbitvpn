@@ -4,8 +4,6 @@ from contextlib import asynccontextmanager
 
 from config import DATABASE_URL
 
-print("DATABASE_URL:", DATABASE_URL)
-
 engine: AsyncEngine = create_async_engine(
     DATABASE_URL, 
     echo=False, 

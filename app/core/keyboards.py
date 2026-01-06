@@ -40,7 +40,6 @@ def main_kb(t: Callable[[str], str], user_id: int | None = None) -> InlineKeyboa
         {'text': t('settings'), 'callback_data': 'settings'},
     ]
 
-    # Show Admin button for admin, Help for others
     if user_id and user_id in ADMIN_TG_IDS:
         buttons.append({'text': t('admin'), 'callback_data': 'admin_panel'})
     else:
@@ -50,7 +49,6 @@ def main_kb(t: Callable[[str], str], user_id: int | None = None) -> InlineKeyboa
 
 
 def balance_kb(t: Callable[[str], str], show_renew: bool = False) -> InlineKeyboardMarkup:
-    """Balance screen keyboard, optionally with renew button for expired subs"""
     buttons = [{'text': t('add_funds'), 'callback_data': 'add_funds'}]
 
     if show_renew:
@@ -62,14 +60,12 @@ def balance_kb(t: Callable[[str], str], show_renew: bool = False) -> InlineKeybo
 
 
 def balance_button_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    """Single balance button for notifications"""
     return _build_keyboard([
         {'text': t('balance'), 'callback_data': 'balance'},
     ])
 
 
 def get_renewal_notification_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    """Keyboard for subscription expiry notifications with renewal action"""
     return _build_keyboard([
         {'text': t('renew_now'), 'callback_data': 'renew_subscription'},
         {'text': t('balance'), 'callback_data': 'balance'},
@@ -106,7 +102,6 @@ def myvpn_kb(
             'callback_data': f"cfg_{cfg['id']}"
         })
 
-    # Show renew button if: active subscription OR expired subscription (has configs but no active sub)
     if has_active_sub or configs:
         buttons.append({'text': t('extend'), 'callback_data': 'renew_subscription'})
 
@@ -142,7 +137,6 @@ def get_notifications_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarkup:
 
 
 def sub_kb(t: Callable[[str], str], is_extension: bool = False) -> InlineKeyboardMarkup:
-    # Calculate savings for multi-month plans (base: 1-month price)
     monthly_price = PLANS['sub_1m']['price']
 
     buttons = []
@@ -160,7 +154,6 @@ def sub_kb(t: Callable[[str], str], is_extension: bool = False) -> InlineKeyboar
         else:
             base_text = t(key).format(price=plan['price'])
 
-        # Add savings indicator for 3+ month plans (compact format with percentage)
         if months >= 3 and savings_percent > 0:
             text = f"{base_text} 💰(-{savings_percent}%)"
         else:
@@ -175,10 +168,10 @@ def sub_kb(t: Callable[[str], str], is_extension: bool = False) -> InlineKeyboar
 
 def get_payment_methods_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarkup:
     return _build_keyboard([
+        {'text': 'YooKassa (RUB)', 'callback_data': 'select_method_yookassa'},
         {'text': 'TON', 'callback_data': 'select_method_ton'},
         {'text': t('pm_stars'), 'callback_data': 'select_method_stars'},
         {'text': 'CryptoBot (USDT)', 'callback_data': 'select_method_cryptobot'},
-        {'text': 'YooKassa (RUB)', 'callback_data': 'select_method_yookassa'},
         {'text': t('back'), 'callback_data': 'balance'},
     ], adjust=1)
 
@@ -197,7 +190,6 @@ def back_balance(t: Callable[[str], str]) -> InlineKeyboardMarkup:
 
 
 def get_payment_amounts_keyboard(t: Callable[[str], str], method: str) -> InlineKeyboardMarkup:
-    # All methods support custom amounts
     return _build_keyboard([
         {'text': '200 RUB', 'callback_data': f'amount_{method}_200'},
         {'text': '500 RUB', 'callback_data': f'amount_{method}_500'},
@@ -208,7 +200,6 @@ def get_payment_amounts_keyboard(t: Callable[[str], str], method: str) -> Inline
 
 
 def payment_success_actions(t: Callable[[str], str], has_active_sub: bool) -> InlineKeyboardMarkup:
-    """Next action buttons after successful payment"""
     if has_active_sub:
         return _build_keyboard([
             {'text': t('extend'), 'callback_data': 'renew_subscription'},
