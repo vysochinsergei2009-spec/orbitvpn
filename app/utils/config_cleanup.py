@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta
 from sqlalchemy import select, update, func
 from app.repo.db import get_session
-from app.repo.models import User, Config
+from app.models.db import User, Config
 from app.repo.marzban_client import MarzbanClient
 from app.utils.redis import get_redis
 

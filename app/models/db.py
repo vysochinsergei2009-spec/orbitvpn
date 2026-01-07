@@ -1,7 +1,7 @@
 from sqlalchemy import (
     Column, Integer, BigInteger, String, Boolean, DateTime, Numeric, Float, Text, CHAR, ARRAY, JSON
 )
-from .db import Base
+from app.repo.db import Base
 from datetime import datetime
 
 class Config(Base):
@@ -26,9 +26,9 @@ class Payment(Base):
     tx_hash = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     confirmed_at = Column(DateTime, nullable=True)
-    expires_at = Column(DateTime, nullable=True)  # Payment expiration time
+    expires_at = Column(DateTime, nullable=True)
     expected_crypto_amount = Column(Numeric, nullable=True)
-    extra_data = Column(JSON, nullable=True)  # For storing extra data like CryptoBot invoice_id
+    extra_data = Column(JSON, nullable=True)
 
 class Referral(Base):
     __tablename__ = "referrals"

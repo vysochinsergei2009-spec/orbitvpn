@@ -57,10 +57,6 @@ class TonGateway(BasePaymentGateway):
         )
 
     async def check_payment(self, payment_id: int) -> bool:
-        """
-        Check if TON payment has been confirmed on blockchain.
-        Uses database locks to prevent replay attacks and race conditions.
-        """
         payment = await self.payment_repo.get_payment(payment_id)
         if not payment:
             LOG.warning(f"Payment {payment_id} not found")
@@ -98,7 +94,7 @@ class TonGateway(BasePaymentGateway):
         )
 
         if confirmed:
-            from app.repo.models import User
+            from app.models.db import User
             from sqlalchemy import select
 
             async with self.session.begin():
@@ -130,14 +126,8 @@ class TonGateway(BasePaymentGateway):
         lang: str = "ru",
         has_active_subscription: bool = False
     ):
-        """
-        Callback when payment is confirmed.
-
-        Sends Telegram notification to user about successful payment.
-        """
         LOG.info(f"TON payment confirmed callback: id={payment_id}, tx={tx_hash}")
 
-        # Send notification if bot is available and we have user info
         if self.bot and tg_id and total_amount:
             from app.utils.payment_notifications import send_payment_notification
 
@@ -151,4 +141,3 @@ class TonGateway(BasePaymentGateway):
                 )
             except Exception as e:
                 LOG.error(f"Error sending payment notification to {tg_id}: {e}")
-                # Don't fail payment confirmation if notification fails

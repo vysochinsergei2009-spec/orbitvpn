@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Tuple
 from dataclasses import dataclass, field
 from aiomarzban import MarzbanAPI, UserDataLimitResetStrategy
 
-from app.utils.logging import get_logger
+from app.settings.log import get_logger
 from config import MAX_IPS_PER_CONFIG, MARZBAN_BASE_URL, MARZBAN_USERNAME, MARZBAN_PASSWORD
 
 LOG = get_logger(__name__)
@@ -202,7 +202,7 @@ class MarzbanClient:
         self,
         username: str,
         days: int,
-        data_limit: int = 300,
+        data_limit: int = 0,
         max_ips: Optional[int] = None,
         manual_instance_id: Optional[str] = None
     ):

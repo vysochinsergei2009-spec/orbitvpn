@@ -8,9 +8,9 @@ from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.payments.models import PaymentMethod
-from app.repo.models import Payment as PaymentModel, TonTransaction
+from app.models.db import Payment as PaymentModel, TonTransaction
 from .db import get_session
-from app.utils.logging import get_logger
+from app.settings.log import get_logger
 from .base import BaseRepository
 from config import PAYMENT_TIMEOUT_MINUTES
 

@@ -8,10 +8,10 @@ from urllib.parse import urlparse, urlunparse
 
 from sqlalchemy import select, update, func
 
-from .models import User, Config
+from ..models.db import User, Config
 from .db import get_session
 from .marzban_client import MarzbanClient
-from app.utils.logging import get_logger
+from app.settings.log import get_logger
 from .base import BaseRepository
 from config import REFERRAL_BONUS, REDIS_TTL
 

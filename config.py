@@ -121,3 +121,4 @@ MIN_PAYMENT_AMOUNT: Final[int] = 200
 MAX_PAYMENT_AMOUNT: Final[int] = 100000
 
 PLANS: Final[dict[str, Any]] = _load_plans()
+

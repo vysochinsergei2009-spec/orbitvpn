@@ -1,10 +1,10 @@
 from typing import Callable, Dict, Any, Awaitable
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
-from app.repo.user import UserRepository
-from app.repo.db import get_session
-from app.locales.locales import get_translator
-from app.utils.redis import get_redis
+from app.db.user import UserRepository
+from app.db.db import get_session
+from .locales import get_translator
+from app.db.cache import get_redis
 
 class LocaleMiddleware(BaseMiddleware):
     async def __call__(

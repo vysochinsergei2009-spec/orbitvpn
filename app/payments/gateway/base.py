@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional
 from datetime import datetime
 from app.payments.models import PaymentResult
-from app.utils.logging import get_logger
+from app.settings.log import get_logger
 
 LOG = get_logger(__name__)
 
@@ -32,19 +32,7 @@ class BasePaymentGateway(ABC):
         amount: Decimal,
         allow_expired: bool = False
     ) -> bool:
-        """
-        Atomically confirm payment with database locks to prevent race conditions.
-
-        Args:
-            payment_id: Payment ID to confirm
-            tx_hash: Transaction hash (for deduplication)
-            amount: Amount to credit
-            allow_expired: Whether to allow confirming expired payments (for blockchain recovery)
-
-        Returns:
-            True if confirmed successfully, False otherwise
-        """
-        from app.repo.models import Payment as PaymentModel, User
+        from app.models.db import Payment as PaymentModel, User
         from sqlalchemy import select
 
         try:
@@ -116,7 +104,6 @@ class BasePaymentGateway(ABC):
             return False
 
     async def get_redis(self):
-        """Get Redis client (must be implemented by subclass if needed)"""
         if hasattr(self, 'redis_client') and self.redis_client:
             return self.redis_client
         from app.utils.redis import get_redis

@@ -6,7 +6,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 from app.repo.user import UserRepository
 from app.repo.payments import PaymentRepository
-from app.utils.logging import get_logger
+from app.settings.log import get_logger
 from app.utils.redis import get_redis
 
 LOG = get_logger(__name__)
@@ -23,7 +23,6 @@ async def safe_answer_callback(callback: CallbackQuery, text: str = None, show_a
 
 
 async def get_repositories(session):
-    """Get repository instances with Redis client."""
     redis_client = await get_redis()
     return (
         UserRepository(session, redis_client),
@@ -56,7 +55,7 @@ async def update_configs_view(
     tg_id: int,
     custom_text: Optional[str] = None
 ):
-    from app.core.keyboards import myvpn_kb
+    from app.keys import myvpn_kb
 
     configs = await user_repo.get_configs(tg_id)
     has_active_sub = await user_repo.has_active_subscription(tg_id)

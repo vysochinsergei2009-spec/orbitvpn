@@ -2,33 +2,13 @@ from collections.abc import Callable
 from typing import Any
 
 from aiogram.types import InlineKeyboardMarkup
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from .builder import build_keyboard
 from config import ADMIN_TG_IDS, PLANS
 
 
-def _build_keyboard(
-    buttons: list[dict[str, Any]],
-    adjust: int | list[int] = 1,
-) -> InlineKeyboardMarkup:
-    builder = InlineKeyboardBuilder()
-
-    for btn in buttons:
-        if 'url' in btn:
-            builder.button(text=btn['text'], url=btn['url'])
-        elif 'switch_inline_query' in btn:
-            builder.button(text=btn['text'], switch_inline_query=btn['switch_inline_query'])
-        else:
-            builder.button(text=btn['text'], callback_data=btn['callback_data'])
-
-    if isinstance(adjust, int):
-        return builder.adjust(adjust).as_markup()
-    else:
-        return builder.adjust(*adjust).as_markup()
-
-
 def qr_delete_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    return _build_keyboard([
+    return build_keyboard([
         {'text': t('delete_config'), 'callback_data': 'delete_qr_msg'},
     ])
 
@@ -45,7 +25,7 @@ def main_kb(t: Callable[[str], str], user_id: int | None = None) -> InlineKeyboa
     else:
         buttons.append({'text': t('help'), 'url': 'https://t.me/chnddy'})
 
-    return _build_keyboard(buttons, adjust=[1, 1, 2])
+    return build_keyboard(buttons, adjust=[1, 1, 2])
 
 
 def balance_kb(t: Callable[[str], str], show_renew: bool = False) -> InlineKeyboardMarkup:
@@ -56,24 +36,24 @@ def balance_kb(t: Callable[[str], str], show_renew: bool = False) -> InlineKeybo
 
     buttons.append({'text': t('back_main'), 'callback_data': 'back_main'})
 
-    return _build_keyboard(buttons)
+    return build_keyboard(buttons)
 
 
 def balance_button_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    return _build_keyboard([
+    return build_keyboard([
         {'text': t('balance'), 'callback_data': 'balance'},
     ])
 
 
-def get_renewal_notification_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    return _build_keyboard([
+def renewal_notification_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
+    return build_keyboard([
         {'text': t('renew_now'), 'callback_data': 'renew_subscription'},
         {'text': t('balance'), 'callback_data': 'balance'},
     ], adjust=2)
 
 
 def set_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    return _build_keyboard([
+    return build_keyboard([
         {'text': t('referral'), 'callback_data': 'referral'},
         {'text': t('notifications'), 'callback_data': 'notifications_settings'},
         {'text': t('change_language'), 'callback_data': 'change_lang'},
@@ -107,30 +87,30 @@ def myvpn_kb(
 
     buttons.append({'text': t('back_main'), 'callback_data': 'back_main'})
 
-    return _build_keyboard(buttons)
+    return build_keyboard(buttons)
 
 
 def actions_kb(t: Callable[[str], str], cfg_id: int | None = None) -> InlineKeyboardMarkup:
     delete_callback = f"delete_cfg_{cfg_id}" if cfg_id else "delete_config"
     qr_callback = f"qr_cfg_{cfg_id}" if cfg_id else "qr_config"
 
-    return _build_keyboard([
+    return build_keyboard([
         {'text': t('delete_config'), 'callback_data': delete_callback},
         {'text': t('qr_code'), 'callback_data': qr_callback},
         {'text': t('back'), 'callback_data': 'myvpn'},
     ], adjust=2)
 
 
-def get_language_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    return _build_keyboard([
+def language_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
+    return build_keyboard([
         {'text': '🇺🇸 English', 'callback_data': 'set_lang:en'},
         {'text': '🇷🇺 Русский', 'callback_data': 'set_lang:ru'},
         {'text': t('back'), 'callback_data': 'settings'},
     ])
 
 
-def get_notifications_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    return _build_keyboard([
+def notifications_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
+    return build_keyboard([
         {'text': t('toggle_notifications'), 'callback_data': 'toggle_notifications'},
         {'text': t('back'), 'callback_data': 'settings'},
     ])
@@ -163,11 +143,11 @@ def sub_kb(t: Callable[[str], str], is_extension: bool = False) -> InlineKeyboar
 
     buttons.append({'text': t('back_main'), 'callback_data': 'back_main'})
 
-    return _build_keyboard(buttons)
+    return build_keyboard(buttons)
 
 
-def get_payment_methods_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    return _build_keyboard([
+def payment_methods_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
+    return build_keyboard([
         {'text': 'YooKassa (RUB)', 'callback_data': 'select_method_yookassa'},
         {'text': 'TON', 'callback_data': 'select_method_ton'},
         {'text': t('pm_stars'), 'callback_data': 'select_method_stars'},
@@ -176,21 +156,21 @@ def get_payment_methods_keyboard(t: Callable[[str], str]) -> InlineKeyboardMarku
     ], adjust=1)
 
 
-def get_referral_keyboard(t: Callable[[str], str], ref_link: str) -> InlineKeyboardMarkup:
-    return _build_keyboard([
+def referral_kb(t: Callable[[str], str], ref_link: str) -> InlineKeyboardMarkup:
+    return build_keyboard([
         {'text': t('share'), 'switch_inline_query': ref_link},
         {'text': t('back'), 'callback_data': 'back_main'},
     ])
 
 
 def back_balance(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    return _build_keyboard([
+    return build_keyboard([
         {'text': t('back'), 'callback_data': 'balance'},
     ])
 
 
-def get_payment_amounts_keyboard(t: Callable[[str], str], method: str) -> InlineKeyboardMarkup:
-    return _build_keyboard([
+def payment_amounts_kb(t: Callable[[str], str], method: str) -> InlineKeyboardMarkup:
+    return build_keyboard([
         {'text': '200 RUB', 'callback_data': f'amount_{method}_200'},
         {'text': '500 RUB', 'callback_data': f'amount_{method}_500'},
         {'text': '1000 RUB', 'callback_data': f'amount_{method}_1000'},
@@ -201,12 +181,12 @@ def get_payment_amounts_keyboard(t: Callable[[str], str], method: str) -> Inline
 
 def payment_success_actions(t: Callable[[str], str], has_active_sub: bool) -> InlineKeyboardMarkup:
     if has_active_sub:
-        return _build_keyboard([
+        return build_keyboard([
             {'text': t('extend'), 'callback_data': 'renew_subscription'},
             {'text': t('back_main'), 'callback_data': 'back_main'},
         ])
     else:
-        return _build_keyboard([
+        return build_keyboard([
             {'text': t('buy_sub'), 'callback_data': 'buy_sub'},
             {'text': t('back_main'), 'callback_data': 'back_main'},
         ])

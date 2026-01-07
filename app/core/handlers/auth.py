@@ -2,10 +2,10 @@ from aiogram import Router, F
 from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 
-from app.core.keyboards import main_kb, get_referral_keyboard
+from app.keys import main_kb, referral_kb
 from app.repo.db import get_session
 from config import FREE_TRIAL_DAYS
-from .utils import safe_answer_callback, get_repositories, extract_referrer_id
+from .helpers import safe_answer_callback, get_repositories, extract_referrer_id
 
 router = Router()
 
@@ -16,7 +16,6 @@ async def cmd_start(message: Message, t):
     username = message.from_user.username or f"unknown_{tg_id}"
     referrer_id = extract_referrer_id(message.text)
 
-    # Prevent self-referral
     if referrer_id and referrer_id == tg_id:
         referrer_id = None
 
@@ -51,6 +50,6 @@ async def referral(callback: CallbackQuery, t):
     text = t('referral_text', ref_link=f"<pre><code>{ref_link}</code></pre>")
     await callback.message.edit_text(
         text,
-        reply_markup=get_referral_keyboard(t, ref_link),
+        reply_markup=referral_kb(t, ref_link),
         parse_mode="HTML"
     )

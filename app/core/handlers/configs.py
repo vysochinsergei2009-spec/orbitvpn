@@ -5,11 +5,11 @@ from aiogram.types import CallbackQuery, LinkPreviewOptions, BufferedInputFile
 from sqlalchemy.exc import OperationalError, TimeoutError as SQLTimeoutError
 import qrcode
 
-from app.core.keyboards import actions_kb, sub_kb, qr_delete_kb
+from app.keys import actions_kb, sub_kb, qr_delete_kb
 from app.repo.db import get_session
-from app.utils.logging import get_logger
+from app.settings.log import get_logger
 from config import INSTALL_GUIDE_URLS
-from .utils import safe_answer_callback, get_repositories, update_configs_view
+from .helpers import safe_answer_callback, get_repositories, update_configs_view
 
 router = Router()
 LOG = get_logger(__name__)

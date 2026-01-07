@@ -1,9 +1,9 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
-from app.core.keyboards import set_kb, get_language_keyboard, get_notifications_keyboard
+from app.keys import set_kb, language_kb, notifications_kb
 from app.repo.db import get_session
-from .utils import safe_answer_callback, get_repositories
+from .helpers import safe_answer_callback, get_repositories
 
 router = Router()
 
@@ -19,7 +19,7 @@ async def change_lang_callback(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     await callback.message.edit_text(
         t("choose_language"),
-        reply_markup=get_language_keyboard(t)
+        reply_markup=language_kb(t)
     )
 
 
@@ -55,7 +55,7 @@ async def notifications_settings_callback(callback: CallbackQuery, t):
     await safe_answer_callback(callback)
     await callback.message.edit_text(
         t('notifications_text', status=status),
-        reply_markup=get_notifications_keyboard(t)
+        reply_markup=notifications_kb(t)
     )
 
 
@@ -72,5 +72,5 @@ async def toggle_notifications_callback(callback: CallbackQuery, t):
     await safe_answer_callback(callback, t('notifications_updated'), show_alert=True)
     await callback.message.edit_text(
         t('notifications_text', status=status),
-        reply_markup=get_notifications_keyboard(t)
+        reply_markup=notifications_kb(t)
     )

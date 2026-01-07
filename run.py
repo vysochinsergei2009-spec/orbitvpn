@@ -4,16 +4,18 @@ from app.core.handlers import router
 from app.locales.locales_mw import LocaleMiddleware
 from app.utils.redis import init_cache, close_cache
 from app.utils.rate_limit import RateLimitMiddleware, cleanup_rate_limit
-from app.utils.logging import get_logger, setup_aiogram_logger
+from app.settings.log import get_logger, setup_aiogram_logger
 from app.utils.payment_cleanup import PaymentCleanupTask
 from app.utils.notifications import SubscriptionNotificationTask
 from app.utils.config_cleanup import ConfigCleanupTask
 from app.utils.auto_renewal import AutoRenewalTask
 from app.repo.db import close_db
 from app.repo.init_db import init_database
-from config import bot
+from app.settings.factory import create_bot
 
 LOG = get_logger(__name__)
+
+bot = create_bot()
 
 async def main():
     setup_aiogram_logger()
@@ -54,11 +56,9 @@ async def main():
     subscription_notifications = SubscriptionNotificationTask(bot, check_interval_seconds=3600 * 3)
     subscription_notifications.start()
 
-    # Start auto-renewal task (runs every 6 hours, renews subscriptions with sufficient balance)
     auto_renewal = AutoRenewalTask(bot, check_interval_seconds=3600 * 6)
     auto_renewal.start()
 
-    # Start config cleanup task (runs once per week, removes configs expired >14 days)
     config_cleanup = ConfigCleanupTask(check_interval_seconds=86400 * 7, days_threshold=14)
     config_cleanup.start()
 
