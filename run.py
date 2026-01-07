@@ -1,16 +1,16 @@
 import asyncio
 from aiogram import Dispatcher
-from app.core.handlers import router
-from app.locales.locales_mw import LocaleMiddleware
-from app.utils.redis import init_cache, close_cache
+from app.routers import router
+from app.settings.locales import LocaleMiddleware
+from app.db.cache import init_cache, close_cache
 from app.utils.rate_limit import RateLimitMiddleware, cleanup_rate_limit
 from app.settings.log import get_logger, setup_aiogram_logger
 from app.utils.payment_cleanup import PaymentCleanupTask
 from app.utils.notifications import SubscriptionNotificationTask
 from app.utils.config_cleanup import ConfigCleanupTask
 from app.utils.auto_renewal import AutoRenewalTask
-from app.repo.db import close_db
-from app.repo.init_db import init_database
+from app.db.db import close_db
+from app.db.init_db import init_database
 from app.settings.factory import create_bot
 
 LOG = get_logger(__name__)
@@ -32,11 +32,11 @@ async def main():
     limiter = RateLimitMiddleware(
         default_limit=0.8,
         custom_limits={
-            '/start': 3.0,
-            'add_funds': 5.0,
-            'pm_ton': 10.0,
-            'pm_stars': 10.0,
-            'buy_sub': 3.0,
+            '/start': 1,
+            'add_funds': 1.0,
+            'pm_ton': 5.0,
+            'pm_stars': 5.0,
+            'buy_sub': 2.0,
             'sub_1m': 2.0,
             'sub_3m': 2.0,
             'sub_6m': 2.0,

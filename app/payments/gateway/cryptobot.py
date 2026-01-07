@@ -5,9 +5,9 @@ from aiogram import Bot
 from aiocryptopay import AioCryptoPay, Networks
 from app.payments.gateway.base import BasePaymentGateway
 from app.payments.models import PaymentResult, PaymentMethod
-from app.repo.payments import PaymentRepository
+from app.db.payments import PaymentRepository
 from app.utils.rates import get_usdt_rub_rate
-from config import CRYPTOBOT_TOKEN, CRYPTOBOT_TESTNET
+from app.settings.config import env
 
 LOG = logging.getLogger(__name__)
 
@@ -23,11 +23,11 @@ class CryptoBotGateway(BasePaymentGateway):
 
     async def _get_cryptopay(self) -> AioCryptoPay:
         if self._cryptopay is None:
-            if not CRYPTOBOT_TOKEN:
+            if not env.CRYPTOBOT_TOKEN:
                 raise ValueError("CRYPTOBOT_TOKEN is not configured in .env")
 
-            network = Networks.TEST_NET if CRYPTOBOT_TESTNET else Networks.MAIN_NET
-            self._cryptopay = AioCryptoPay(token=CRYPTOBOT_TOKEN, network=network)
+            network = Networks.TEST_NET if env.CRYPTOBOT_TESTNET else Networks.MAIN_NET
+            self._cryptopay = AioCryptoPay(token=env.CRYPTOBOT_TOKEN, network=network)
 
         return self._cryptopay
 

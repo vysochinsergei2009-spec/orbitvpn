@@ -3,7 +3,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 
 from app.keys import main_kb, referral_kb
-from app.repo.db import get_session
+from app.db.db import get_session
 from app.settings.config import env
 from .helpers import safe_answer_callback, get_repositories, extract_referrer_id
 

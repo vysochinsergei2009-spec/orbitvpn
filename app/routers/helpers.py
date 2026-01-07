@@ -4,10 +4,10 @@ from typing import Callable, Optional
 from aiogram.types import CallbackQuery
 from aiogram.exceptions import TelegramBadRequest
 
-from app.repo.user import UserRepository
-from app.repo.payments import PaymentRepository
+from app.db.user import UserRepository
+from app.db.payments import PaymentRepository
 from app.settings.log import get_logger
-from app.utils.redis import get_redis
+from app.db.cache import get_redis
 
 LOG = get_logger(__name__)
 

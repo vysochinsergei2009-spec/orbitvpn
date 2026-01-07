@@ -6,7 +6,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class EnvSettingsFile(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", case_sensitive=True, extra="ignore"
+        env_file=".env", 
+        case_sensitive=True, 
+        extra="ignore"
     )
     
     BOT_TOKEN: str
@@ -39,14 +41,14 @@ class EnvSettingsFile(BaseSettings):
     PAYMENT_TIMEOUT_MINUTES: int = 15
     REFERRAL_BONUS: int
     IS_LOGGING: bool = True
-    LOG_LEVEL: str # Options: "INFO", "DEBUG", "ERROR"
+    LOG_LEVEL: str = "INFO"
     LOG_AIOGRAM: bool = False
     
     @field_validator("ADMIN_TG_IDS", mode="before")
     @classmethod
     def parse_admin_ids(cls, v):
         if isinstance(v, str):
-            return [int(id.strip()) for id in v.split(",") if id.strip()]
+            return json.loads(v.replace(" ", ""))
         return v
 
     @cached_property

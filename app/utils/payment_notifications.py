@@ -1,12 +1,9 @@
-"""
-Payment notification utilities for sending payment confirmation messages to users.
-"""
 import logging
 from decimal import Decimal
 from aiogram import Bot
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 
-from app.locales.locales import get_translator
+from app.settings.locales import get_translator
 from app.keys import payment_success_actions
 
 LOG = logging.getLogger(__name__)
@@ -19,23 +16,9 @@ async def send_payment_notification(
     lang: str = "ru",
     has_active_subscription: bool = False
 ):
-    """
-    Send payment confirmation notification to user.
-
-    Args:
-        bot: Aiogram Bot instance
-        tg_id: User Telegram ID
-        amount: Total amount credited
-        lang: User language (ru/en)
-        has_active_subscription: Whether user has active subscription
-
-    Returns:
-        True if sent successfully, False otherwise
-    """
     try:
         t = get_translator(lang)
 
-        # Build success message
         success_text = t('payment_success', amount=float(amount))
 
         await bot.send_message(

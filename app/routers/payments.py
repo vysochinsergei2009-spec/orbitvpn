@@ -11,17 +11,18 @@ from app.keys import (
     balance_kb, payment_methods_kb, payment_amounts_kb,
     back_balance, payment_success_actions
 )
-from app.repo.db import get_session
+from app.db.db import get_session
 from app.payments.manager import PaymentManager
 from app.payments.models import PaymentMethod
 from app.settings.log import get_logger
-from app.utils.redis import get_redis
+from app.db.cache import get_redis
 from app.settings.config import env
 from .helpers import safe_answer_callback, get_repositories, get_user_balance, format_expire_date
 from app.settings.factory import create_bot
 
 router = Router()
 bot = create_bot()
+
 LOG = get_logger(__name__)
 
 

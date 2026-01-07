@@ -106,5 +106,5 @@ class BasePaymentGateway(ABC):
     async def get_redis(self):
         if hasattr(self, 'redis_client') and self.redis_client:
             return self.redis_client
-        from app.utils.redis import get_redis
+        from app.db.cache import get_redis
         return await get_redis()

@@ -1,4 +1,4 @@
-from app.repo.db import engine, Base
+from app.db.db import engine, Base
 from app.settings.log import get_logger
 
 LOG = get_logger(__name__)

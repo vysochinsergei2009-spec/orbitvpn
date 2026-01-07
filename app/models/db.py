@@ -1,7 +1,7 @@
 from sqlalchemy import (
     Column, Integer, BigInteger, String, Boolean, DateTime, Numeric, Float, Text, CHAR, ARRAY, JSON
 )
-from app.repo.db import Base
+from app.db.db import Base
 from datetime import datetime
 
 class Config(Base):

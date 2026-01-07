@@ -9,12 +9,8 @@ from urllib3.exceptions import ConnectTimeoutError, ReadTimeoutError, TimeoutErr
 from requests.exceptions import ConnectTimeout, ReadTimeout, Timeout as RequestsTimeout
 from app.payments.gateway.base import BasePaymentGateway
 from app.payments.models import PaymentResult, PaymentMethod
-from app.repo.payments import PaymentRepository
-from config import (
-    YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY,
-    YOOKASSA_TEST_SHOP_ID, YOOKASSA_TEST_SECRET_KEY,
-    YOOKASSA_TESTNET
-)
+from app.db.payments import PaymentRepository
+from app.settings.config import env
 
 from app.settings.factory import create_bot
 
@@ -32,9 +28,9 @@ class YooKassaGateway(BasePaymentGateway):
 
     async def _ensure_configured(self):
         if not self._configured:
-            if YOOKASSA_TESTNET:
-                shop_id = YOOKASSA_TEST_SHOP_ID
-                secret_key = YOOKASSA_TEST_SECRET_KEY
+            if env.YOOKASSA_TESTNET:
+                shop_id = env.YOOKASSA_TEST_SHOP_ID
+                secret_key = env.YOOKASSA_TEST_SECRET_KEY
                 mode = "TESTNET"
 
                 if not shop_id or not secret_key:
@@ -43,8 +39,8 @@ class YooKassaGateway(BasePaymentGateway):
                         "when YOOKASSA_TESTNET=true"
                     )
             else:
-                shop_id = YOOKASSA_SHOP_ID
-                secret_key = YOOKASSA_SECRET_KEY
+                shop_id = env.YOOKASSA_SHOP_ID
+                secret_key = env.YOOKASSA_SECRET_KEY
                 mode = "PRODUCTION"
 
                 if not shop_id or not secret_key:
@@ -173,7 +169,7 @@ class YooKassaGateway(BasePaymentGateway):
                 + t("yookassa_click_button")
             )
 
-            mode = "TESTNET" if YOOKASSA_TESTNET else "PRODUCTION"
+            mode = "TESTNET" if env.YOOKASSA_TESTNET else "PRODUCTION"
             LOG.info(f"YooKassa payment created successfully: payment_id={payment_id}, "
                     f"yookassa_id={yookassa_payment.id}, amount={amount}, "
                     f"url={confirmation_url}, mode={mode}")

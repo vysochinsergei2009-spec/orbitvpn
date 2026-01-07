@@ -1,6 +1,5 @@
 from aiogram import Bot
-#from ..config import env
-from config import BOT_TOKEN
+from app.settings.config import env
 
 def create_bot() -> Bot:
-    return Bot(token=BOT_TOKEN)
+    return Bot(token=env.BOT_TOKEN)

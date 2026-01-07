@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from aiomarzban import MarzbanAPI, UserDataLimitResetStrategy
 
 from app.settings.log import get_logger
-from config import MAX_IPS_PER_CONFIG, MARZBAN_BASE_URL, MARZBAN_USERNAME, MARZBAN_PASSWORD
+from app.settings.config import env
 
 LOG = get_logger(__name__)
 
@@ -12,9 +12,9 @@ LOG = get_logger(__name__)
 class MarzbanInstance:
     id: str = "default"
     name: str = "Default Instance"
-    base_url: str = field(default=MARZBAN_BASE_URL)
-    username: str = field(default=MARZBAN_USERNAME)
-    password: str = field(default=MARZBAN_PASSWORD)
+    base_url: str = field(default=env.PANEL_HOST)
+    username: str = field(default=env.PANEL_USERNAME)
+    password: str = field(default=env.PANEL_PASSWORD)
     is_active: bool = True
     priority: int = 1
     excluded_node_names: Optional[List[str]] = None
@@ -68,7 +68,7 @@ class MarzbanClient:
         instance: MarzbanInstance,
         api: MarzbanAPI
     ) -> List[NodeLoadMetrics]:
-        from app.utils.redis import get_redis
+        from app.db.cache import get_redis
         import json
 
         redis_key = f"marzban:{instance.id}:node_metrics"
@@ -209,7 +209,7 @@ class MarzbanClient:
         instance, api, node_id = await self.get_best_instance_and_node(manual_instance_id)
 
         if max_ips is None:
-            max_ips = MAX_IPS_PER_CONFIG
+            max_ips = env.MAX_IPS_PER_CONFIG
 
         try:
 

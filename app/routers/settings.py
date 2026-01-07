@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
 from app.keys import set_kb, language_kb, notifications_kb
-from app.repo.db import get_session
+from app.db.db import get_session
 from .helpers import safe_answer_callback, get_repositories
 
 router = Router()
@@ -34,7 +34,7 @@ async def set_lang_callback(callback: CallbackQuery, t):
 
     await safe_answer_callback(callback, t("language_updated"), show_alert=True)
 
-    from app.locales.locales import get_translator
+    from app.settings.locales import get_translator
     new_t = get_translator(lang)
     await callback.message.edit_text(
         new_t("settings_text"),

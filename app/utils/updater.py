@@ -7,17 +7,17 @@ from pytonapi.utils import to_amount, raw_to_userfriendly
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.repo.db import get_session
+from app.db.db import get_session
 from app.payments.manager import PaymentManager
 from app.payments.models import PaymentMethod
 from app.models.db import TonTransaction
-from app.utils.redis import get_redis
-from config import TON_ADDRESS, TONAPI_KEY, PAYMENT_TIMEOUT_MINUTES
+from app.db.cache import get_redis
+from app.settings.config import env
 
 LOG = logging.getLogger(__name__)
 
 class TonTransactionsUpdater:
-    def __init__(self, ton_address: str = TON_ADDRESS, api_key: str = TONAPI_KEY):
+    def __init__(self, ton_address: str = env.TON_ADDRESS, api_key: str = env.TONAPI_KEY):
         self.ton_address = ton_address
         self.last_lt = 0
         self.tonapi = AsyncTonapi(api_key=api_key)
@@ -30,7 +30,7 @@ class TonTransactionsUpdater:
             )
             txs = []
             now = datetime.utcnow()
-            min_time = now - timedelta(minutes=PAYMENT_TIMEOUT_MINUTES * 2)
+            min_time = now - timedelta(minutes=env.PAYMENT_TIMEOUT_MINUTES * 2)
 
             for tx in result.transactions:
                 lt = int(tx.lt)

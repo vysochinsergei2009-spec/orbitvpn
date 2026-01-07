@@ -4,8 +4,8 @@ from typing import Optional
 from aiogram.types import LabeledPrice
 from app.payments.gateway.base import BasePaymentGateway
 from app.payments.models import PaymentResult, PaymentMethod
-from app.repo.payments import PaymentRepository
-from config import TELEGRAM_STARS_RATE
+from app.db.payments import PaymentRepository
+from app.settings.config import env
 
 LOG = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class TelegramStarsGateway(BasePaymentGateway):
         if not chat_id:
             raise ValueError("chat_id required for Stars payment")
 
-        stars_amount = int(amount / Decimal(str(TELEGRAM_STARS_RATE)))
+        stars_amount = int(amount / Decimal(str(env.TELEGRAM_STARS_RATE)))
         payload = f"topup_{tg_id}_{int(amount)}"
 
         try:

@@ -1,14 +1,12 @@
-from io import BytesIO
-
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, LinkPreviewOptions, BufferedInputFile
 from sqlalchemy.exc import OperationalError, TimeoutError as SQLTimeoutError
-import qrcode
 
 from app.keys import actions_kb, sub_kb, qr_delete_kb
-from app.repo.db import get_session
+from app.db.db import get_session
 from app.settings.log import get_logger
 from app.settings.config import env
+from app.utils.qrcode import generate_qr_code
 from .helpers import safe_answer_callback, get_repositories, update_configs_view
 
 router = Router()
@@ -118,22 +116,7 @@ async def qr_config(callback: CallbackQuery, t):
             return
 
         try:
-            qr = qrcode.QRCode(
-                version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
-                box_size=10,
-                border=4,
-            )
-            qr.add_data(cfg['vless_link'])
-            qr.make(fit=True)
-
-            img = qr.make_image(fill_color="black", back_color="white")
-
-            bio = BytesIO()
-            img.save(bio, format='PNG')
-            bio.seek(0)
-
-            photo = BufferedInputFile(bio.read(), filename="qr_code.png")
+            photo = generate_qr_code(cfg['vless_link'])
             await callback.message.answer_photo(
                 photo=photo,
                 caption=t('your_config'),

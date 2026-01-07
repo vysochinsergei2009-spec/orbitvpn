@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
 from app.keys import sub_kb, myvpn_kb
-from app.repo.db import get_session
+from app.db.db import get_session
 from app.settings.log import get_logger
 from app.settings.config import env
 from .helpers import safe_answer_callback, get_repositories, get_user_balance, format_expire_date

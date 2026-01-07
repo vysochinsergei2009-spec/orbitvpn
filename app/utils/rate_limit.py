@@ -11,16 +11,14 @@ class RateLimitMiddleware(BaseMiddleware):
         self.default_limit = default_limit
         self.custom_limits = custom_limits or {}
         self.last_time: OrderedDict[Tuple[int, str], float] = OrderedDict()
-        self.max_cache_size = max_cache_size  # Prevent unbounded memory growth
+        self.max_cache_size = max_cache_size
         self._lock = asyncio.Lock()
 
     def _get_key(self, event: Any) -> str:
-        # Handle message commands
         text = getattr(event, "text", None)
         if isinstance(text, str) and text.startswith("/"):
             return text.split()[0]
 
-        # Handle callback queries (for financial operations rate limiting)
         callback_data = getattr(event, "data", None)
         if callback_data:
             return callback_data
@@ -63,9 +61,7 @@ class RateLimitMiddleware(BaseMiddleware):
 
             self.last_time[lk] = now
 
-            # Enforce max cache size to prevent memory leak
             if len(self.last_time) > self.max_cache_size:
-                # Remove oldest 10% of entries when limit exceeded
                 remove_count = self.max_cache_size // 10
                 for _ in range(remove_count):
                     self.last_time.popitem(last=False)
@@ -82,14 +78,6 @@ class RateLimitMiddleware(BaseMiddleware):
 
 
 async def cleanup_rate_limit(middleware: RateLimitMiddleware, interval: int = 600, max_age: int = 1800):
-    """
-    Periodically clean up old rate limit entries to prevent memory growth.
-
-    Args:
-        middleware: The RateLimitMiddleware instance to clean
-        interval: How often to run cleanup (default: 600s = 10 minutes)
-        max_age: Remove entries older than this (default: 1800s = 30 minutes)
-    """
     try:
         while True:
             await asyncio.sleep(interval)
