@@ -4,7 +4,7 @@ from typing import Any
 from aiogram.types import InlineKeyboardMarkup
 
 from .builder import build_keyboard
-from config import ADMIN_TG_IDS, PLANS
+from app.settings.config import env
 
 
 def qr_delete_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
@@ -20,7 +20,7 @@ def main_kb(t: Callable[[str], str], user_id: int | None = None) -> InlineKeyboa
         {'text': t('settings'), 'callback_data': 'settings'},
     ]
 
-    if user_id and user_id in ADMIN_TG_IDS:
+    if user_id and env.is_admin(user_id):
         buttons.append({'text': t('admin'), 'callback_data': 'admin_panel'})
     else:
         buttons.append({'text': t('help'), 'url': 'https://t.me/chnddy'})
@@ -117,10 +117,10 @@ def notifications_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
 
 
 def sub_kb(t: Callable[[str], str], is_extension: bool = False) -> InlineKeyboardMarkup:
-    monthly_price = PLANS['sub_1m']['price']
+    monthly_price = env.plans['sub_1m']['price']
 
     buttons = []
-    for key, plan in PLANS.items():
+    for key, plan in env.plans.items():
         if not key.startswith('sub_'):
             continue
 

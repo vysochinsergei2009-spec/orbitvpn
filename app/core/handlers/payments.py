@@ -16,10 +16,12 @@ from app.payments.manager import PaymentManager
 from app.payments.models import PaymentMethod
 from app.settings.log import get_logger
 from app.utils.redis import get_redis
-from config import TELEGRAM_STARS_RATE, PLANS, bot, MIN_PAYMENT_AMOUNT, MAX_PAYMENT_AMOUNT
+from app.settings.config import env
 from .helpers import safe_answer_callback, get_repositories, get_user_balance, format_expire_date
+from app.settings.factory import create_bot
 
 router = Router()
+bot = create_bot()
 LOG = get_logger(__name__)
 
 
@@ -50,7 +52,7 @@ async def balance_callback(callback: CallbackQuery, t, state: FSMContext):
             expire_date = format_expire_date(sub_end)
             text += f"\n\n{t('subscription_expired_on', expire_date=expire_date)}"
         else:
-            cheapest = min(PLANS.values(), key=lambda x: x['price'])
+            cheapest = min(env.plans.values(), key=lambda x: x['price'])
             text += f"\n\n{t('subscription_from', price=cheapest['price'])}"
 
         await callback.message.edit_text(text, reply_markup=balance_kb(t, show_renew=show_renew_button))
@@ -90,7 +92,7 @@ async def process_amount_selection(callback: CallbackQuery, t, state: FSMContext
 
     try:
         amount = Decimal(amount_str)
-        if amount <= 0 or amount < MIN_PAYMENT_AMOUNT or amount > MAX_PAYMENT_AMOUNT:
+        if amount <= 0 or amount < env.MIN_PAYMENT_AMOUNT or amount > env.MAX_PAYMENT_AMOUNT:
             raise ValueError("Invalid preset amount")
     except (ValueError, TypeError) as e:
         LOG.error(f"Invalid preset amount: {amount_str} - {e}")
@@ -108,7 +110,7 @@ async def process_custom_amount(message: Message, state: FSMContext, t):
         amount = Decimal(message.text)
         if amount <= 0:
             raise ValueError("Amount must be positive")
-        if amount < MIN_PAYMENT_AMOUNT or amount > MAX_PAYMENT_AMOUNT:
+        if amount < env.MIN_PAYMENT_AMOUNT or amount > env.MAX_PAYMENT_AMOUNT:
             raise ValueError("Amount out of range")
         if amount.as_tuple().exponent < -2:
             raise ValueError("Too many decimal places")
@@ -128,7 +130,6 @@ async def process_custom_amount(message: Message, state: FSMContext, t):
 
 
 def _build_payment_keyboard(t, method: PaymentMethod, result):
-    """Build inline keyboard for payment based on method type"""
     if method == PaymentMethod.TON:
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=t('payment_sent'), callback_data=f'payment_sent_{result.payment_id}')]
@@ -154,7 +155,6 @@ def _build_payment_keyboard(t, method: PaymentMethod, result):
 
 
 def _build_payment_text(t, method: PaymentMethod, result):
-    """Build payment instruction text based on method type"""
     if method == PaymentMethod.TON:
         return t(
             'ton_payment_instruction',
@@ -166,7 +166,6 @@ def _build_payment_text(t, method: PaymentMethod, result):
 
 
 async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
-    """Process payment creation and send payment instructions"""
     tg_id = msg_or_callback.from_user.id
     is_callback = isinstance(msg_or_callback, CallbackQuery)
 
@@ -265,7 +264,7 @@ async def pre_checkout(pre_checkout_query: PreCheckoutQuery):
             )
             return
 
-        if amount < MIN_PAYMENT_AMOUNT or amount > MAX_PAYMENT_AMOUNT:
+        if amount < env.MIN_PAYMENT_AMOUNT or amount > env.MAX_PAYMENT_AMOUNT:
             await bot.answer_pre_checkout_query(
                 pre_checkout_query.id,
                 ok=False,
@@ -303,7 +302,7 @@ async def successful_payment(message: Message, t):
         await message.answer(t('error_creating_payment'))
         return
 
-    rub_amount = Decimal(stars_paid) * Decimal(str(TELEGRAM_STARS_RATE))
+    rub_amount = Decimal(stars_paid) * Decimal(str(env.TELEGRAM_STARS_RATE))
 
     async with get_session() as session:
         try:
@@ -395,7 +394,6 @@ async def successful_payment(message: Message, t):
 
 @router.callback_query(F.data.startswith('payment_sent_'))
 async def payment_sent_callback(callback: CallbackQuery, t):
-    """Handle 'Payment Sent' button - check payment immediately"""
     await safe_answer_callback(callback, t('payment_checking'), show_alert=True)
 
     tg_id = callback.from_user.id
@@ -428,7 +426,7 @@ async def payment_sent_callback(callback: CallbackQuery, t):
                 expire_date = format_expire_date(sub_end)
                 text += f"\n\n{t('subscription_active_until', expire_date=expire_date)}"
             else:
-                cheapest = min(PLANS.values(), key=lambda x: x['price'])
+                cheapest = min(env.plans.values(), key=lambda x: x['price'])
                 text += f"\n\n{t('subscription_from', price=cheapest['price'])}"
 
             await callback.message.edit_text(text, reply_markup=balance_kb(t))

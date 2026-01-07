@@ -4,7 +4,7 @@ from aiogram.types import CallbackQuery
 from app.keys import sub_kb, myvpn_kb
 from app.repo.db import get_session
 from app.settings.log import get_logger
-from config import PLANS
+from app.settings.config import env
 from .helpers import safe_answer_callback, get_repositories, get_user_balance, format_expire_date
 
 router = Router()
@@ -34,7 +34,7 @@ async def buy_sub_callback(callback: CallbackQuery, t):
 
 @router.callback_query(F.data.in_({"sub_1m", "sub_3m", "sub_6m", "sub_12m"}))
 async def sub_buy_callback(callback: CallbackQuery, t):
-    plan = PLANS[callback.data]
+    plan = env.plans[callback.data]
     days, price = plan["days"], plan["price"]
     tg_id = callback.from_user.id
 

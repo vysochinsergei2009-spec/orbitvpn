@@ -4,7 +4,7 @@ from aiogram.types import Message, CallbackQuery
 
 from app.keys import main_kb, referral_kb
 from app.repo.db import get_session
-from config import FREE_TRIAL_DAYS
+from app.settings.config import env
 from .helpers import safe_answer_callback, get_repositories, extract_referrer_id
 
 router = Router()
@@ -24,7 +24,7 @@ async def cmd_start(message: Message, t):
 
         is_new_user = await user_repo.add_if_not_exists(tg_id, username, referrer_id=referrer_id)
         if is_new_user:
-            await user_repo.buy_subscription(tg_id, days=FREE_TRIAL_DAYS, price=0.0)
+            await user_repo.buy_subscription(tg_id, days=env.FREE_TRIAL_DAYS, price=0.0)
 
         await message.answer(t("cmd_start"), reply_markup=main_kb(t, user_id=tg_id))
 
