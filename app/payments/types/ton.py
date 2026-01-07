@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 from aiogram import Bot
-from app.payments.gateway.base import BasePaymentGateway
+from .base import BasePaymentGateway
 from app.payments.models import PaymentResult, PaymentMethod
 from app.db.payments import PaymentRepository
 from app.settings.config import env
@@ -29,7 +29,7 @@ class TonGateway(BasePaymentGateway):
         if payment_id is None or comment is None:
             raise ValueError("payment_id and comment required for TON")
 
-        from app.utils.rates import get_ton_price
+        from app.settings.utils.rates import get_ton_price
         try:
             ton_price = await get_ton_price()
             expected_ton = (Decimal(amount) / ton_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
@@ -129,7 +129,7 @@ class TonGateway(BasePaymentGateway):
         LOG.info(f"TON payment confirmed callback: id={payment_id}, tx={tx_hash}")
 
         if self.bot and tg_id and total_amount:
-            from app.utils.payment_notifications import send_payment_notification
+            from app.settings.utils.payment_notifications import send_payment_notification
 
             try:
                 await send_payment_notification(

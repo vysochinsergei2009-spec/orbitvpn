@@ -4,7 +4,7 @@ import asyncio
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
-from .gateway import *
+from .types import *
 from app.payments.models import PaymentResult, PaymentMethod
 from app.db.payments import PaymentRepository
 from app.db.user import UserRepository
@@ -66,7 +66,7 @@ class PaymentManager:
 
             if method == PaymentMethod.TON:
                 comment = uuid.uuid4().hex[:10]
-                from app.utils.rates import get_ton_price
+                from app.settings.utils.rates import get_ton_price
                 ton_price = await get_ton_price()
                 expected_crypto_amount = (Decimal(amount) / ton_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
@@ -107,9 +107,6 @@ class PaymentManager:
             raise
 
     async def cancel_payment(self, payment_id: int):
-        """
-        Cancels a payment both remotely (via gateway) and locally.
-        """
         payment = await self.payment_repo.get_payment(payment_id)
         if not payment or payment['status'] != 'pending':
             LOG.warning(f"Attempted to cancel payment {payment_id} which is not pending.")
@@ -157,7 +154,7 @@ class PaymentManager:
 
                     ton_pendings = await temp_payment_repo.get_pending_payments(PaymentMethod.TON.value)
                     if ton_pendings:
-                        from app.utils.updater import TonTransactionsUpdater
+                        from app.settings.utils.updater import TonTransactionsUpdater
                         updater = TonTransactionsUpdater()
                         await updater.run_once()
 

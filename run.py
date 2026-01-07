@@ -1,17 +1,19 @@
 import asyncio
 from aiogram import Dispatcher
+
 from app.routers import router
 from app.settings.locales import LocaleMiddleware
 from app.db.cache import init_cache, close_cache
-from app.utils.rate_limit import RateLimitMiddleware, cleanup_rate_limit
 from app.settings.log import get_logger, setup_aiogram_logger
-from app.utils.payment_cleanup import PaymentCleanupTask
-from app.utils.notifications import SubscriptionNotificationTask
-from app.utils.config_cleanup import ConfigCleanupTask
-from app.utils.auto_renewal import AutoRenewalTask
+from app.settings.utils.payment_cleanup import PaymentCleanupTask
+from app.settings.utils.notifications import SubscriptionNotificationTask
+from app.settings.utils.config_cleanup import ConfigCleanupTask
+from app.settings.utils.auto_renewal import AutoRenewalTask
 from app.db.db import close_db
 from app.db.init_db import init_database
+
 from app.settings.factory import create_bot
+from app.settings.middlewares import RateLimitMiddleware, cleanup_rate_limit
 
 LOG = get_logger(__name__)
 

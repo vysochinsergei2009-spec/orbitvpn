@@ -7,7 +7,7 @@ from aiogram import Bot
 from yookassa import Configuration, Payment as YooKassaPayment
 from urllib3.exceptions import ConnectTimeoutError, ReadTimeoutError, TimeoutError as Urllib3TimeoutError
 from requests.exceptions import ConnectTimeout, ReadTimeout, Timeout as RequestsTimeout
-from app.payments.gateway.base import BasePaymentGateway
+from .base import BasePaymentGateway
 from app.payments.models import PaymentResult, PaymentMethod
 from app.db.payments import PaymentRepository
 from app.settings.config import env
@@ -346,7 +346,7 @@ class YooKassaGateway(BasePaymentGateway):
     ):
         LOG.info(f"YooKassa payment confirmed: id={payment_id}, tx={tx_hash}")
         if self.bot and tg_id and total_amount:
-            from app.utils.payment_notifications import send_payment_notification
+            from app.settings.utils.payment_notifications import send_payment_notification
             try:
                 await send_payment_notification(
                     bot=self.bot,

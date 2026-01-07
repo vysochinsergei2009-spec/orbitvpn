@@ -3,10 +3,10 @@ from decimal import Decimal
 from typing import Optional
 from aiogram import Bot
 from aiocryptopay import AioCryptoPay, Networks
-from app.payments.gateway.base import BasePaymentGateway
+from .base import BasePaymentGateway
 from app.payments.models import PaymentResult, PaymentMethod
 from app.db.payments import PaymentRepository
-from app.utils.rates import get_usdt_rub_rate
+from app.settings.utils.rates import get_usdt_rub_rate
 from app.settings.config import env
 
 LOG = logging.getLogger(__name__)
@@ -216,7 +216,7 @@ class CryptoBotGateway(BasePaymentGateway):
         LOG.info(f"CryptoBot payment confirmed callback: id={payment_id}, tx={tx_hash}")
 
         if self.bot and tg_id and total_amount:
-            from app.utils.payment_notifications import send_payment_notification
+            from app.settings.utils.payment_notifications import send_payment_notification
 
             try:
                 await send_payment_notification(

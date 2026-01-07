@@ -6,7 +6,7 @@ from app.keys import actions_kb, sub_kb, qr_delete_kb
 from app.db.db import get_session
 from app.settings.log import get_logger
 from app.settings.config import env
-from app.utils.qrcode import generate_qr_code
+from app.settings.utils.qrcode import generate_qr_code
 from .helpers import safe_answer_callback, get_repositories, update_configs_view
 
 router = Router()
