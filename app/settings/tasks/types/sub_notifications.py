@@ -91,7 +91,7 @@ async def _check_and_notify_user(user: User, redis, bot: Bot):
 
 async def _send_notification(tg_id: int, lang: str, days: int | str, user_balance: float, bot: Bot) -> bool:
     try:
-        message = _get_random_message(lang, days, user_balance)
+        message = _get_message(lang, days, user_balance)
         if not message:
             return False
 
@@ -118,26 +118,17 @@ async def _send_notification(tg_id: int, lang: str, days: int | str, user_balanc
         return False
 
 
-def _get_random_message(lang: str, days: int | str, user_balance: float = 0) -> str:
+def _get_message(lang: str, days: int | str, user_balance: float = 0) -> str:
     t = get_translator(lang)
 
     if days == 3:
-        variants = [
-            t('sub_expiry_3days_1'),
-            t('sub_expiry_3days_2'),
-            t('sub_expiry_3days_3'),
-        ]
-    elif days == 1:
+        return t('sub_expiry_3days')
+
+    if days == 1:
         monthly_price = env.plans['sub_1m']['price']
         needed = max(0, monthly_price - user_balance)
 
-        variants = [
-            t('sub_expiry_1day_1'),
-            t('sub_expiry_1day_2'),
-            t('sub_expiry_1day_3'),
-        ]
-
-        message = random.choice(variants)
+        message = t('sub_expiry_1day')
 
         if needed > 0:
             message += f"\n\n{t('quick_renewal_info', price=monthly_price, needed=int(needed))}"
@@ -146,13 +137,7 @@ def _get_random_message(lang: str, days: int | str, user_balance: float = 0) -> 
 
         return message
 
-    elif days == 'expired':
-        variants = [
-            t('sub_expired_1'),
-            t('sub_expired_2'),
-            t('sub_expired_3'),
-        ]
-    else:
-        return ""
+    if days == 'expired':
+        return t('sub_expired')
 
-    return random.choice(variants)
+    return ""
