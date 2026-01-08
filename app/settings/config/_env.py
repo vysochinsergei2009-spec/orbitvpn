@@ -13,13 +13,13 @@ class EnvSettingsFile(BaseSettings):
     
     BOT_TOKEN: str
     ADMIN_TG_IDS: list[int]
+    SUPPORT_USER: str
     DATABASE_USER: str
     DATABASE_PASSWORD: str
     DATABASE_NAME: str
     DATABASE_HOST: str = "localhost"
     DATABASE_PORT: int = 5432
     REDIS_URL: str = "redis://localhost"
-    PORT: int = 5000
     PANEL_HOST: str
     PANEL_USERNAME: str
     PANEL_PASSWORD: str

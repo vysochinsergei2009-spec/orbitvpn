@@ -23,7 +23,7 @@ def main_kb(t: Callable[[str], str], user_id: int | None = None) -> InlineKeyboa
     if user_id and env.is_admin(user_id):
         buttons.append({'text': t('admin'), 'callback_data': 'admin_panel'})
     else:
-        buttons.append({'text': t('help'), 'url': 'https://t.me/chnddy'})
+        buttons.append({'text': t('help'), 'url': f'https://t.me/{env.SUPPORT_USER}'})
 
     return build_keyboard(buttons, adjust=[1, 1, 2])
 
