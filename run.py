@@ -5,10 +5,9 @@ from app.routers import router
 from app.settings.locales import LocaleMiddleware
 from app.db.cache import init_cache, close_cache
 from app.settings.log import get_logger, setup_aiogram_logger
-from app.settings.utils.payment_cleanup import PaymentCleanupTask
-from app.settings.utils.notifications import SubscriptionNotificationTask
-from app.settings.utils.config_cleanup import ConfigCleanupTask
-from app.settings.utils.auto_renewal import AutoRenewalTask
+from app.settings.tasks.types.sub_notifications import SubscriptionNotificationTask
+from app.settings.tasks.types.config_cleanup import ConfigCleanupTask
+from app.settings.utils import tasker
 from app.db.db import close_db
 from app.db.init_db import init_database
 
@@ -52,14 +51,8 @@ async def main():
         cleanup_rate_limit(limiter, interval=3600, max_age=3600)
     )
 
-    payment_cleanup = PaymentCleanupTask(check_interval_seconds=300, cleanup_days=7)
-    payment_cleanup.start()
-
     subscription_notifications = SubscriptionNotificationTask(bot, check_interval_seconds=3600 * 3)
     subscription_notifications.start()
-
-    auto_renewal = AutoRenewalTask(bot, check_interval_seconds=3600 * 6)
-    auto_renewal.start()
 
     config_cleanup = ConfigCleanupTask(check_interval_seconds=86400 * 7, days_threshold=14)
     config_cleanup.start()
@@ -70,9 +63,7 @@ async def main():
         await dp.start_polling(bot)
     finally:
         rate_limit_cleanup_task.cancel()
-        payment_cleanup.stop()
         subscription_notifications.stop()
-        auto_renewal.stop()
         config_cleanup.stop()
 
         try:
