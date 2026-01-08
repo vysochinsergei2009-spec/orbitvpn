@@ -33,7 +33,7 @@ async def cmd_start(message: Message, t, user_repo: UserRepository):
         )
 
     await message.answer(
-        t("cmd_start"), 
+        t("welcome"), 
         reply_markup=main_kb(t, user_id=tg_id)
     )
 

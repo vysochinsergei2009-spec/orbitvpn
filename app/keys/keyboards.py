@@ -47,7 +47,7 @@ def balance_button_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
 
 def renewal_notification_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
     return build_keyboard([
-        {'text': t('renew_now'), 'callback_data': 'renew_subscription'},
+        {'text': t('extend'), 'callback_data': 'renew_subscription'},
         {'text': t('balance'), 'callback_data': 'balance'},
     ], adjust=2)
 

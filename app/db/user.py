@@ -236,6 +236,7 @@ class UserRepository(BaseRepository):
         await self.session.execute(update(User).where(User.tg_id == tg_id).values(lang=lang))
         await self.session.commit()
 
+    # DELETE START
     async def get_notifications(self, tg_id: int) -> bool:
         redis = await self.get_redis()
         key = f"user:{tg_id}:notifications"
@@ -279,6 +280,7 @@ class UserRepository(BaseRepository):
 
         LOG.info(f"Notifications toggled for user {tg_id}: {new_state}")
         return new_state
+    # DELETE FINISH
 
     async def get_subscription_end(self, tg_id: int) -> Optional[float]:
         redis = await self.get_redis()
