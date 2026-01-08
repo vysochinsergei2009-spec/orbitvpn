@@ -5,8 +5,6 @@ from app.routers import router
 from app.settings.locales import LocaleMiddleware
 from app.db.cache import init_cache, close_cache
 from app.settings.log import get_logger, setup_aiogram_logger
-from app.settings.tasks.types.sub_notifications import SubscriptionNotificationTask
-from app.settings.tasks.types.config_cleanup import ConfigCleanupTask
 from app.settings.utils import tasker
 from app.db.db import close_db
 from app.db.init_db import init_database
@@ -51,20 +49,12 @@ async def main():
         cleanup_rate_limit(limiter, interval=3600, max_age=3600)
     )
 
-    subscription_notifications = SubscriptionNotificationTask(bot, check_interval_seconds=3600 * 3)
-    subscription_notifications.start()
-
-    config_cleanup = ConfigCleanupTask(check_interval_seconds=86400 * 7, days_threshold=14)
-    config_cleanup.start()
-
     LOG.info("Bot started...")
 
     try:
         await dp.start_polling(bot)
     finally:
         rate_limit_cleanup_task.cancel()
-        subscription_notifications.stop()
-        config_cleanup.stop()
 
         try:
             await rate_limit_cleanup_task
