@@ -34,13 +34,6 @@ LOCALES = {
         "link_not_found": "(Ссылка не найдена)",
         "creating_config": "Создаём конфигурацию...",
         "instruction": "Установка",
-        "instruction_text": (
-            "Установка VLESS-конфига:\n\n"
-            "1. Скачайте клиент V2RayTun (или аналог) для вашей платформы.\n"
-            "2. Откройте приложение и найдите кнопку импорта конфигурации.\n"
-            "3. Вставьте ссылку VLESS, которую прислал бот.\n"
-            "4. Сохраните конфигурацию и включите соединение."
-        ),
         "max_configs_reached": "Достигнут максимум конфигураций (1). Удалите старую.",
         "no_servers": "Нет доступных серверов. Свяжитесь с поддержкой.",
         "buy_sub_text": "Выберите подписку:",
@@ -134,19 +127,6 @@ LOCALES = {
         'create_new_payment': 'Создать новый',
         'payment_sent': 'Отправил оплату',
         'payment_checking': 'Проверяем платёж...\n\nБаланс будет зачислен автоматически после подтверждения транзакции в блокчейне.\n\nОбычно это занимает 1-2 минуты.',
-        'admin': 'Админ',
-        'admin_panel_welcome': '🔧 Панель администратора\n\nВыберите раздел:',
-        'admin_stats': 'Статистика',
-        'admin_users': 'Пользователи',
-        'admin_payments': 'Платежи',
-        'admin_servers': 'Серверы',
-        'admin_broadcast': 'Рассылка',
-        'access_denied': 'Доступ запрещён',
-        'admin_stats_placeholder': '📊 Статистика бота\n\n[В разработке]\n\nЗдесь будет:\n- Общее количество пользователей\n- Активные подписки\n- Доход за период\n- Конверсия',
-        'admin_users_placeholder': '👥 Управление пользователями\n\n[В разработке]\n\nЗдесь будет:\n- Поиск пользователей\n- Выдача/отзыв подписок\n- Блокировка пользователей\n- История активности',
-        'admin_payments_placeholder': '💰 Статистика платежей\n\n[В разработке]\n\nЗдесь будет:\n- Последние платежи\n- Статистика по методам оплаты\n- Неудачные платежи\n- Общий доход',
-        'admin_servers_placeholder': '🖥 Статус серверов\n\n[В разработке]\n\nЗдесь будет:\n- Список Marzban серверов\n- Загрузка серверов\n- Активные конфигурации\n- Управление серверами',
-        'admin_broadcast_placeholder': '📢 Рассылка сообщений\n\n[В разработке]\n\nЗдесь будет:\n- Отправка сообщений всем пользователям\n- Отправка определённым группам\n- Статистика доставки',
         'notifications': 'Уведомления',
         'notifications_enabled': 'Включены 🟢',
         'notifications_disabled': 'Выключены 🔴',
@@ -203,13 +183,6 @@ LOCALES = {
         "link_not_found": "(Link not found)",
         "creating_config": "Creating config...",
         "instruction": "Installation",
-        "instruction_text": (
-            "VLESS configuration installation:\n\n"
-            "1. Download V2RayTun client (or similar) for your platform.\n"
-            "2. Open the app and find the import configuration button.\n"
-            "3. Paste the VLESS link provided by the bot.\n"
-            "4. Save the configuration and enable the connection."
-        ),
         "max_configs_reached": "Max configs reached (1). Delete old one.",
         "no_servers": "No servers available. Contact support.",
         "buy_sub_text": "Choose subscription:",
@@ -303,19 +276,7 @@ LOCALES = {
         'create_new_payment': 'Create new',
         'payment_sent': 'Payment sent',
         'payment_checking': 'Checking payment...\n\nBalance will be credited automatically after blockchain confirmation.\n\nUsually takes 1-2 minutes.',
-        'admin': 'Admin',
-        'admin_panel_welcome': '🔧 Admin Panel\n\nSelect a section:',
-        'admin_stats': 'Statistics',
-        'admin_users': 'Users',
-        'admin_payments': 'Payments',
-        'admin_servers': 'Servers',
-        'admin_broadcast': 'Broadcast',
         'access_denied': 'Access denied',
-        'admin_stats_placeholder': '📊 Bot Statistics\n\n[Under development]\n\nWill include:\n- Total users\n- Active subscriptions\n- Revenue by period\n- Conversion rates',
-        'admin_users_placeholder': '👥 User Management\n\n[Under development]\n\nWill include:\n- User search\n- Grant/revoke subscriptions\n- Block users\n- Activity history',
-        'admin_payments_placeholder': '💰 Payment Statistics\n\n[Under development]\n\nWill include:\n- Recent payments\n- Statistics by payment method\n- Failed payments\n- Total revenue',
-        'admin_servers_placeholder': '🖥 Server Status\n\n[Under development]\n\nWill include:\n- Marzban server list\n- Server load\n- Active configurations\n- Server management',
-        'admin_broadcast_placeholder': '📢 Message Broadcast\n\n[Under development]\n\nWill include:\n- Send messages to all users\n- Send to specific groups\n- Delivery statistics',
         'notifications': 'Notifications',
         'notifications_enabled': 'Enabled 🟢',
         'notifications_disabled': 'Disabled 🔴',
