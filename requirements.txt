@@ -7,10 +7,8 @@ python-dotenv==1.0.0
 pycoingecko
 sqlalchemy[asyncio]
 asyncpg
-telegraph
 qrcode[pil]
 pillow
-rich
 click
 aiocryptopay
 yookassa
