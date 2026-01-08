@@ -5,7 +5,7 @@ from app.routers import router
 from app.settings.locales import LocaleMiddleware
 from app.db.cache import init_cache, close_cache
 from app.settings.log import get_logger, setup_aiogram_logger
-from app.settings.utils import tasker
+from app.settings.tasks import tasker
 from app.db.db import close_db
 from app.db.init_db import init_database
 
@@ -49,6 +49,8 @@ async def main():
         cleanup_rate_limit(limiter, interval=3600, max_age=3600)
     )
 
+    await tasker.start(bot)
+
     LOG.info("Bot started...")
 
     try:
@@ -60,7 +62,8 @@ async def main():
             await rate_limit_cleanup_task
         except asyncio.CancelledError:
             pass
-
+        
+        await tasker.stop()
         await bot.session.close()
         await close_db()
         await close_cache()
