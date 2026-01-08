@@ -29,10 +29,7 @@ def setup_logging(
     log_to_file: bool = True
 ) -> None:
     """
-    Args:
         log_level: Уровень логирования (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        is_logging: Включить/выключить логирование
-        log_to_file: Сохранять логи в файл
     """
     if not is_logging:
         logging.disable(logging.CRITICAL)
@@ -73,10 +70,6 @@ def get_logger(name: str) -> logging.Logger:
 
 
 def setup_aiogram_logger(log_level: Optional[str] = None) -> None:
-    """
-    Args:
-        log_level: Уровень логирования для aiogram (если None, используется INFO)
-    """
     level = getattr(logging, log_level.upper(), logging.INFO) if log_level else logging.INFO
     
     aiogram_loggers = [

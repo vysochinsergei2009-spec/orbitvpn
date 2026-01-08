@@ -2,14 +2,10 @@ from decimal import Decimal
 from typing import Optional, List, Dict, Union
 from datetime import datetime, timedelta
 import asyncio
-
-
-from sqlalchemy import select, update, func
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
 
 from app.payments.models import PaymentMethod
 from app.models.db import Payment as PaymentModel, TonTransaction
-from .db import get_session
 from app.settings.log import get_logger
 from .base import BaseRepository
 from app.settings.config import env
