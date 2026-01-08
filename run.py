@@ -10,7 +10,7 @@ from app.db.db import close_db
 from app.db.init_db import init_database
 
 from app.settings.factory import create_bot
-from app.settings.middlewares import RateLimitMiddleware, cleanup_rate_limit
+from app.settings.middlewares import RateLimitMiddleware, cleanup_rate_limit, RepositoryMiddleware
 
 LOG = get_logger(__name__)
 
@@ -27,6 +27,9 @@ async def main():
 
     dp.message.middleware(LocaleMiddleware())
     dp.callback_query.middleware(LocaleMiddleware())
+
+    dp.message.middleware(RepositoryMiddleware())
+    dp.callback_query.middleware(RepositoryMiddleware())
 
     limiter = RateLimitMiddleware(
         default_limit=0.8,

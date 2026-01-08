@@ -2,8 +2,8 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
 from app.keys import set_kb, language_kb, notifications_kb
-from app.db.db import get_session
-from .helpers import safe_answer_callback, get_repositories
+from app.db.user import UserRepository
+from .helpers import safe_answer_callback
 
 router = Router()
 
@@ -24,14 +24,12 @@ async def change_lang_callback(callback: CallbackQuery, t):
 
 
 @router.callback_query(F.data.startswith("set_lang:"))
-async def set_lang_callback(callback: CallbackQuery, t):
+async def set_lang_callback(callback: CallbackQuery, t, user_repo: UserRepository):
     lang = callback.data.split(":")[1]
     tg_id = callback.from_user.id
 
-    async with get_session() as session:
-        user_repo, _ = await get_repositories(session)
-        await user_repo.set_lang(tg_id, lang)
-
+    await user_repo.set_lang(tg_id, lang)
+    
     await safe_answer_callback(callback, t("language_updated"), show_alert=True)
 
     from app.settings.locales import get_translator
@@ -43,12 +41,9 @@ async def set_lang_callback(callback: CallbackQuery, t):
 
 
 @router.callback_query(F.data == 'notifications_settings')
-async def notifications_settings_callback(callback: CallbackQuery, t):
+async def notifications_settings_callback(callback: CallbackQuery, t, user_repo: UserRepository):
     tg_id = callback.from_user.id
-
-    async with get_session() as session:
-        user_repo, _ = await get_repositories(session)
-        notifications_enabled = await user_repo.get_notifications(tg_id)
+    notifications_enabled = await user_repo.get_notifications(tg_id)
 
     status = t('notifications_enabled') if notifications_enabled else t('notifications_disabled')
 
@@ -60,12 +55,9 @@ async def notifications_settings_callback(callback: CallbackQuery, t):
 
 
 @router.callback_query(F.data == 'toggle_notifications')
-async def toggle_notifications_callback(callback: CallbackQuery, t):
+async def toggle_notifications_callback(callback: CallbackQuery, t, user_repo: UserRepository):
     tg_id = callback.from_user.id
-
-    async with get_session() as session:
-        user_repo, _ = await get_repositories(session)
-        new_state = await user_repo.toggle_notifications(tg_id)
+    new_state = await user_repo.toggle_notifications(tg_id)
 
     status = t('notifications_enabled') if new_state else t('notifications_disabled')
 
