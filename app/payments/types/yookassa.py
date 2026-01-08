@@ -28,15 +28,15 @@ class YooKassaGateway(BasePaymentGateway):
 
     async def _ensure_configured(self):
         if not self._configured:
-            if env.YOOKASSA_TESTNET:
-                shop_id = env.YOOKASSA_TEST_SHOP_ID
-                secret_key = env.YOOKASSA_TEST_SECRET_KEY
+            if env.YOOKASSA_T:
+                shop_id = env.YOOKASSA_ID_T
+                secret_key = env.YOOKASSA_KEY_T
                 mode = "TESTNET"
 
                 if not shop_id or not secret_key:
                     raise ValueError(
-                        "YOOKASSA_TEST_SHOP_ID and YOOKASSA_TEST_SECRET_KEY must be configured in .env "
-                        "when YOOKASSA_TESTNET=true"
+                        "YOOKASSA_ID_T and YOOKASSA_KEY_T must be configured in .env "
+                        "when YOOKASSA_T=true"
                     )
             else:
                 shop_id = env.YOOKASSA_SHOP_ID
@@ -45,8 +45,8 @@ class YooKassaGateway(BasePaymentGateway):
 
                 if not shop_id or not secret_key:
                     raise ValueError(
-                        "YOOKASSA_SHOP_ID and YOOKASSA_SECRET_KEY must be configured in .env "
-                        "when YOOKASSA_TESTNET=false"
+                        "YOOKASSA_ID and YOOKASSA_KEY must be configured in .env "
+                        "when YOOKASSA_T=false"
                     )
 
             await asyncio.to_thread(Configuration.configure, shop_id, secret_key)
@@ -169,7 +169,7 @@ class YooKassaGateway(BasePaymentGateway):
                 + t("yookassa_click_button")
             )
 
-            mode = "TESTNET" if env.YOOKASSA_TESTNET else "PRODUCTION"
+            mode = "TESTNET" if env.YOOKASSA_T else "PRODUCTION"
             LOG.info(f"YooKassa payment created successfully: payment_id={payment_id}, "
                     f"yookassa_id={yookassa_payment.id}, amount={amount}, "
                     f"url={confirmation_url}, mode={mode}")

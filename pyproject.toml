@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "orbitvpn"
+version = "0.4.8"
+description = "telegram vpn bot based on aiogram 3.22+"
+authors = ["omegarevolt"]
+license = ""
+readme = "README.md"
+repository = "https://github.com/..."
+documentation = "..."
+keywords = [
+    "orbitvpn"
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+aiohttp = "^3.8.3"

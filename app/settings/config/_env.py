@@ -29,11 +29,11 @@ class EnvSettingsFile(BaseSettings):
     TONAPI_KEY: str
     CRYPTOBOT_TOKEN: str
     CRYPTOBOT_TESTNET: bool = False
-    YOOKASSA_SHOP_ID: str
-    YOOKASSA_SECRET_KEY: str
-    YOOKASSA_TEST_SHOP_ID: str
-    YOOKASSA_TEST_SECRET_KEY: str
-    YOOKASSA_TESTNET: bool = False
+    YOOKASSA_ID: str
+    YOOKASSA_KEY: str
+    YOOKASSA_ID_T: str
+    YOOKASSA_KEY_T: str
+    YOOKASSA_T: bool = False
     MIN_PAYMENT_AMOUNT: int = 200
     MAX_PAYMENT_AMOUNT: int = 100000
     TELEGRAM_STARS_RATE: float = 1.5
