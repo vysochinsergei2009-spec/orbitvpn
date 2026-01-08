@@ -55,7 +55,6 @@ def renewal_notification_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
 def set_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
     return build_keyboard([
         {'text': t('referral'), 'callback_data': 'referral'},
-        {'text': t('notifications'), 'callback_data': 'notifications_settings'},
         {'text': t('change_language'), 'callback_data': 'change_lang'},
         {'text': t('back_main'), 'callback_data': 'back_main'},
     ])
@@ -105,13 +104,6 @@ def language_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
     return build_keyboard([
         {'text': '🇺🇸 English', 'callback_data': 'set_lang:en'},
         {'text': '🇷🇺 Русский', 'callback_data': 'set_lang:ru'},
-        {'text': t('back'), 'callback_data': 'settings'},
-    ])
-
-
-def notifications_kb(t: Callable[[str], str]) -> InlineKeyboardMarkup:
-    return build_keyboard([
-        {'text': t('toggle_notifications'), 'callback_data': 'toggle_notifications'},
         {'text': t('back'), 'callback_data': 'settings'},
     ])
 

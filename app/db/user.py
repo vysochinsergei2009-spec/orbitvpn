@@ -101,7 +101,6 @@ class UserRepository(BaseRepository):
             lang='ru',
             referrer_id=referrer_id,
             first_buy=True,
-            notifications=True,
             created_at=now
         )
         self.session.add(new_user)
@@ -235,52 +234,6 @@ class UserRepository(BaseRepository):
 
         await self.session.execute(update(User).where(User.tg_id == tg_id).values(lang=lang))
         await self.session.commit()
-
-    # DELETE START
-    async def get_notifications(self, tg_id: int) -> bool:
-        redis = await self.get_redis()
-        key = f"user:{tg_id}:notifications"
-
-        try:
-            cached = await redis.get(key)
-            if cached is not None:
-                return cached == "1"
-        except Exception as e:
-            LOG.warning(f"Redis error reading notifications for user {tg_id}: {e}")
-
-        user = await self.session.get(User, tg_id)
-        notifications = user.notifications if user and user.notifications is not None else True
-
-        try:
-            await redis.setex(key, CACHE_TTL_NOTIFICATIONS, "1" if notifications else "0")
-        except Exception as e:
-            LOG.warning(f"Redis error caching notifications for user {tg_id}: {e}")
-
-        return notifications
-
-    async def toggle_notifications(self, tg_id: int) -> bool:
-        redis = await self.get_redis()
-
-        user = await self.session.get(User, tg_id)
-        if not user:
-            LOG.warning(f"User {tg_id} not found during toggle_notifications")
-            return True
-
-        new_state = not (user.notifications if user.notifications is not None else True)
-
-        await self.session.execute(
-            update(User).where(User.tg_id == tg_id).values(notifications=new_state)
-        )
-        await self.session.commit()
-
-        try:
-            await redis.setex(f"user:{tg_id}:notifications", CACHE_TTL_NOTIFICATIONS, "1" if new_state else "0")
-        except Exception as e:
-            LOG.warning(f"Redis error updating notifications cache for user {tg_id}: {e}")
-
-        LOG.info(f"Notifications toggled for user {tg_id}: {new_state}")
-        return new_state
-    # DELETE FINISH
 
     async def get_subscription_end(self, tg_id: int) -> Optional[float]:
         redis = await self.get_redis()
@@ -489,11 +442,4 @@ class UserRepository(BaseRepository):
     async def get_all_users(self) -> List[User]:
         session = self.session
         result = await session.execute(select(User))
-        return list(result.scalars().all())
-
-    async def get_users_with_notifications(self) -> List[User]:
-        session = self.session
-        result = await session.execute(
-            select(User).where(User.notifications == True)
-        )
         return list(result.scalars().all())

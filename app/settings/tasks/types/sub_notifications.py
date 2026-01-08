@@ -45,9 +45,6 @@ async def check_expiring_subscriptions(bot: Bot):
 
 
 async def _check_and_notify_user(user: User, redis, bot: Bot):
-    if not user.notifications:
-        return
-
     if not user.subscription_end:
         return
 

@@ -61,4 +61,3 @@ class User(Base):
     configs = Column(Integer, default=0)
     referrer_id = Column(BigInteger)
     first_buy = Column(Boolean, default=True)
-    notifications = Column(Boolean, default=True)
