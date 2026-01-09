@@ -39,8 +39,8 @@ class YooKassaGateway(BasePaymentGateway):
                         "when YOOKASSA_T=true"
                     )
             else:
-                shop_id = env.YOOKASSA_SHOP_ID
-                secret_key = env.YOOKASSA_SECRET_KEY
+                shop_id = env.YOOKASSA_ID
+                secret_key = env.YOOKASSA_KEY
                 mode = "PRODUCTION"
 
                 if not shop_id or not secret_key:
