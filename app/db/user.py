@@ -14,15 +14,9 @@ from app.api.marzban import MarzbanClient
 from app.settings.log import get_logger
 from .base import BaseRepository
 from app.settings.config import env
-from app.db.cache import invalidate_user_cache, get_cache, set_cache
+from app.db.cache import invalidate_user_cache, get_cache, set_cache, CacheTTL
 
 LOG = get_logger(__name__)
-
-CACHE_TTL_BALANCE = 60
-CACHE_TTL_CONFIGS = 600
-CACHE_TTL_SUB_END = 3600
-CACHE_TTL_LANG = 86400
-CACHE_TTL_NOTIFICATIONS = 3600
 
 class UserRepository(BaseRepository):
 
@@ -38,7 +32,7 @@ class UserRepository(BaseRepository):
         result = await self.session.execute(select(User.balance).filter_by(tg_id=tg_id))
         balance = result.scalar() or Decimal("0.0")
 
-        await set_cache(f"user:{tg_id}:balance", str(balance), CACHE_TTL_BALANCE)
+        await set_cache(f"user:{tg_id}:balance", str(balance), CacheTTL.BALANCE)
 
         return balance
 
@@ -120,7 +114,7 @@ class UserRepository(BaseRepository):
             username=c.username
         ) for c in result.scalars().all()]
 
-        await set_cache(key, json.dumps(configs), CACHE_TTL_CONFIGS)
+        await set_cache(key, json.dumps(configs), CacheTTL.CONFIGS)
         
         return configs
 
@@ -211,12 +205,12 @@ class UserRepository(BaseRepository):
         user = await self.session.get(User, tg_id)
         lang = user.lang if user else "ru"
 
-        await set_cache(key, lang, CACHE_TTL_LANG)
+        await set_cache(key, lang, CacheTTL.LANG)
         
         return lang
 
     async def set_lang(self, tg_id: int, lang: str):
-        await set_cache(f"user:{tg_id}:lang", lang, CACHE_TTL_LANG)
+        await set_cache(f"user:{tg_id}:lang", lang, CacheTTL.LANG)
 
         await self.session.execute(update(User).where(User.tg_id == tg_id).values(lang=lang))
         await self.session.commit()
@@ -232,7 +226,7 @@ class UserRepository(BaseRepository):
         sub_end_dt = result.scalar()
         sub_end = sub_end_dt.timestamp() if sub_end_dt else None
 
-        await set_cache(key, str(sub_end) if sub_end else 'None', CACHE_TTL_SUB_END)
+        await set_cache(key, str(sub_end) if sub_end else 'None', CacheTTL.SUB_END)
         
         return sub_end
 
@@ -246,7 +240,7 @@ class UserRepository(BaseRepository):
         usernames = [r[0] for r in result.all()]
         await self.session.commit()
 
-        await set_cache(f"user:{tg_id}:sub_end", str(timestamp), CACHE_TTL_SUB_END)
+        await set_cache(f"user:{tg_id}:sub_end", str(timestamp), CacheTTL.SUB_END)
 
         if usernames:
             import asyncio
@@ -301,8 +295,8 @@ class UserRepository(BaseRepository):
 
         await self.session.commit()
 
-        await set_cache(f"user:{tg_id}:sub_end", str(new_end_ts), CACHE_TTL_SUB_END)
-        await set_cache(f"user:{tg_id}:balance", str(new_balance), CACHE_TTL_BALANCE)
+        await set_cache(f"user:{tg_id}:sub_end", str(new_end_ts), CacheTTL.SUB_END)
+        await set_cache(f"user:{tg_id}:balance", str(new_balance), CacheTTL.BALANCE)
 
         if usernames:
             import asyncio

@@ -8,6 +8,14 @@ LOG = get_logger(__name__)
 
 redis_client: redis.Redis = None
 
+class CacheTTL:
+    BALANCE = 60
+    CONFIGS = 600
+    SUB_END = 3600
+    LANG = 86400
+    NOTIFICATIONS = 3600
+    NODE_METRICS = 120
+
 
 async def init_cache():
     global redis_client
