@@ -10,10 +10,12 @@ from sqlalchemy import select, update, func
 
 from ..models.db import User, Config
 from .db import get_session
+from .cache import invalidate_user_cache, get_cache, set_cache
 from app.api.marzban import MarzbanClient
 from app.settings.log import get_logger
 from .base import BaseRepository
 from app.settings.config import env
+
 
 LOG = get_logger(__name__)
 
@@ -29,29 +31,20 @@ class UserRepository(BaseRepository):
     def _validate_username(username: str) -> bool:
         return bool(re.match(r'^orbit_\d+$', username))
 
-    async def get_balance(self, tg_id: int) -> Decimal:
-        redis = await self.get_redis()
 
-        try:
-            cached = await redis.get(f"user:{tg_id}:balance")
-            if cached:
-                return Decimal(cached)
-        except Exception as e:
-            LOG.warning(f"Redis error reading balance for user {tg_id}: {e}")
+    async def get_balance(self, tg_id: int) -> Decimal:
+        cached = await get_cache(f"user:{tg_id}:balance")
+        if cached:
+            return Decimal(cached)
 
         result = await self.session.execute(select(User.balance).filter_by(tg_id=tg_id))
         balance = result.scalar() or Decimal("0.0")
 
-        try:
-            await redis.setex(f"user:{tg_id}:balance", CACHE_TTL_BALANCE, str(balance))
-        except Exception as e:
-            LOG.warning(f"Redis error caching balance for user {tg_id}: {e}")
-
+        await set_cache(f"user:{tg_id}:balance", str(balance), CACHE_TTL_BALANCE)
         return balance
+    
 
     async def change_balance(self, tg_id: int, amount: Decimal) -> Decimal:
-        redis = await self.get_redis()
-
         result = await self.session.execute(
             select(User)
             .where(User.tg_id == tg_id)
@@ -73,12 +66,9 @@ class UserRepository(BaseRepository):
 
         LOG.info(f"Balance changed for user {tg_id}: {old_balance} → {new_balance} ({amount:+.2f})")
 
-        try:
-            await redis.delete(f"user:{tg_id}:balance")
-        except Exception as e:
-            LOG.warning(f"Redis error invalidating balance cache for user {tg_id}: {e}")
-
+        await invalidate_user_cache(tg_id, 'balance')
         return new_balance
+
 
     async def add_if_not_exists(
         self,
@@ -116,6 +106,7 @@ class UserRepository(BaseRepository):
         await self.session.commit()
         return True
 
+
     async def get_configs(self, tg_id: int) -> List[Dict]:
         redis = await self.get_redis()
         key = f"user:{tg_id}:configs"
@@ -135,6 +126,7 @@ class UserRepository(BaseRepository):
 
         await redis.setex(key, CACHE_TTL_CONFIGS, json.dumps(configs))
         return configs
+
 
     async def add_config(self, tg_id: int, vless_link: str, username: str) -> Dict:
         redis = await self.get_redis()
@@ -170,6 +162,7 @@ class UserRepository(BaseRepository):
             "username": cfg.username
         }
 
+
     async def _safe_remove_marzban_user(self, username: str):
         marzban_client = MarzbanClient()
         try:
@@ -183,6 +176,7 @@ class UserRepository(BaseRepository):
             except Exception as ex:
                 LOG.error("Failed to expire marzban user %s during fallback: %s", username, ex)
 
+
     async def _safe_modify_marzban_user(self, username: str, expire_ts: int):
         marzban_client = MarzbanClient()
         try:
@@ -190,6 +184,7 @@ class UserRepository(BaseRepository):
             LOG.info("Modified marzban user %s expire=%s", username, expire_ts)
         except Exception as e:
             LOG.error("Failed to modify marzban user %s expire=%s: %s", username, expire_ts, e)
+
 
     async def delete_config(self, cfg_id: int, tg_id: int):
         redis = await self.get_redis()
@@ -215,6 +210,7 @@ class UserRepository(BaseRepository):
 
         await redis.delete(f"user:{tg_id}:configs")
 
+
     async def get_lang(self, tg_id: int) -> str:
         redis = await self.get_redis()
         key = f"user:{tg_id}:lang"
@@ -228,12 +224,14 @@ class UserRepository(BaseRepository):
         await redis.setex(key, CACHE_TTL_LANG, lang)
         return lang
 
+
     async def set_lang(self, tg_id: int, lang: str):
         redis = await self.get_redis()
         await redis.setex(f"user:{tg_id}:lang", CACHE_TTL_LANG, lang)
 
         await self.session.execute(update(User).where(User.tg_id == tg_id).values(lang=lang))
         await self.session.commit()
+
 
     async def get_subscription_end(self, tg_id: int) -> Optional[float]:
         redis = await self.get_redis()
@@ -249,8 +247,8 @@ class UserRepository(BaseRepository):
         await redis.setex(key, CACHE_TTL_SUB_END, str(sub_end) if sub_end else 'None')
         return sub_end
 
+
     async def set_subscription_end(self, tg_id: int, timestamp: float):
-        redis = await self.get_redis()
         expire_dt = datetime.fromtimestamp(timestamp)
 
         await self.session.execute(
@@ -260,7 +258,7 @@ class UserRepository(BaseRepository):
         usernames = [r[0] for r in result.all()]
         await self.session.commit()
 
-        await redis.setex(f"user:{tg_id}:sub_end", CACHE_TTL_SUB_END, str(timestamp))
+        await set_cache(f"user:{tg_id}:sub_end", str(timestamp), CACHE_TTL_SUB_END)
 
         if usernames:
             import asyncio
@@ -269,11 +267,13 @@ class UserRepository(BaseRepository):
                 for username in usernames
             ], return_exceptions=True)
 
+
     async def has_active_subscription(self, tg_id: int) -> bool:
         sub_end = await self.get_subscription_end(tg_id)
         if not sub_end:
             return False
         return time.time() < sub_end
+
 
     async def buy_subscription(self, tg_id: int, days: int, price: float) -> bool:
         redis = await self.get_redis()
@@ -328,6 +328,7 @@ class UserRepository(BaseRepository):
 
         LOG.info(f"User {tg_id} purchased {days} days for {price} RUB. New balance: {new_balance}")
         return True
+
 
     async def create_and_add_config(
         self,
@@ -438,6 +439,7 @@ class UserRepository(BaseRepository):
             "vless_link": cfg.vless_link,
             "username": cfg.username
         }
+
 
     async def get_all_users(self) -> List[User]:
         session = self.session

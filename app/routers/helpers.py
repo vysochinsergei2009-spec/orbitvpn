@@ -22,14 +22,6 @@ async def safe_answer_callback(callback: CallbackQuery, text: str = None, show_a
             raise
 
 
-async def get_repositories(session):
-    redis_client = await get_redis()
-    return (
-        UserRepository(session, redis_client),
-        PaymentRepository(session, redis_client)
-    )
-
-
 def extract_referrer_id(text: str) -> Optional[int]:
     parts = text.split()
     if len(parts) > 1 and parts[1].startswith("ref_"):

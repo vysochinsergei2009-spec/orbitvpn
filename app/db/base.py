@@ -1,4 +1,4 @@
-from .db import get_session, AsyncSession
+from .db import AsyncSession
 import redis.asyncio as redis
 
 class BaseRepository:
