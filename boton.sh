@@ -1,5 +1,5 @@
 #!/bin/bash
-readonly PROJECT_DIR="/root/orbitvpn"
+readonly PROJECT_DIR="/opt/orbitvpn"
 readonly VENV_PATH="${PROJECT_DIR}/venv"
 readonly PYTHON_SCRIPT="${PROJECT_DIR}/run.py"
 readonly TMUX_SESSION="orbitvpn_bot"

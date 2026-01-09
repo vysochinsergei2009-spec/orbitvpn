@@ -10,25 +10,24 @@ from app.db.payments import PaymentRepository
 from app.db.user import UserRepository
 from app.db.db import get_session
 from app.db.cache import get_redis
-from app.settings.factory import create_bot
 
 LOG = logging.getLogger(__name__)
 
-bot = create_bot()
-
 class PaymentManager:
-    def __init__(self, session, redis_client=None):
+    def __init__(self, session, redis_client=None, bot=None):
         self.session = session
         self.redis_client = redis_client
+        self.bot = bot
         self.payment_repo = PaymentRepository(session, redis_client)
         self.gateways: dict[PaymentMethod, BasePaymentGateway] = {
-            PaymentMethod.TON: TonGateway(session, redis_client, bot=bot),
-            PaymentMethod.STARS: TelegramStarsGateway(bot, session, redis_client),
-            PaymentMethod.CRYPTOBOT: CryptoBotGateway(session, redis_client, bot=bot),
-            PaymentMethod.YOOKASSA: YooKassaGateway(session, redis_client, bot=bot),
+            PaymentMethod.TON: TonGateway(session, redis_client, bot=self.bot),
+            PaymentMethod.STARS: TelegramStarsGateway(self.bot, session, redis_client),
+            PaymentMethod.CRYPTOBOT: CryptoBotGateway(session, redis_client, bot=self.bot),
+            PaymentMethod.YOOKASSA: YooKassaGateway(session, redis_client, bot=self.bot),
         }
         self.user_repo = UserRepository(session, redis_client)
         self.polling_task: Optional[asyncio.Task] = None
+
 
     async def create_payment(
         self,
@@ -55,10 +54,7 @@ class PaymentManager:
             if active_payments:
                 LOG.info(f"User {tg_id} has {len(active_payments)} active payment(s). Auto-canceling...")
                 for payment in active_payments:
-                    try:
-                        await self.cancel_payment(payment['id'])
-                    except Exception as e:
-                        LOG.error(f"Failed to cancel payment {payment['id']}: {e}")
+                    await self.cancel_payment(payment['id'])
 
             currency = "RUB"
             comment = None
@@ -68,7 +64,9 @@ class PaymentManager:
                 comment = uuid.uuid4().hex[:10]
                 from app.settings.utils.rates import get_ton_price
                 ton_price = await get_ton_price()
-                expected_crypto_amount = (Decimal(amount) / ton_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                expected_crypto_amount = (Decimal(amount) / ton_price).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
 
             payment_id = await self.payment_repo.create_payment(
                 tg_id=tg_id,
@@ -79,29 +77,23 @@ class PaymentManager:
                 expected_crypto_amount=expected_crypto_amount
             )
 
-            try:
-                gateway = self.gateways[method]
-                result = await gateway.create_payment(
-                    t,
-                    tg_id=tg_id,
-                    amount=amount,
-                    chat_id=chat_id,
-                    payment_id=payment_id,
-                    comment=comment
-                )
+            gateway = self.gateways[method]
+            result = await gateway.create_payment(
+                t,
+                tg_id=tg_id,
+                amount=amount,
+                chat_id=chat_id,
+                payment_id=payment_id,
+                comment=comment
+            )
 
-                LOG.info(f"Payment created: {method} for user {tg_id}, amount {amount}, id={payment_id}")
-                if method in [PaymentMethod.TON, PaymentMethod.CRYPTOBOT, PaymentMethod.YOOKASSA]:
-                    await self.start_polling_if_needed()
-                return result
-            except Exception as gateway_error:
-                LOG.error(f"Gateway error for payment {payment_id}: {type(gateway_error).__name__}: {gateway_error}")
-                try:
-                    await self.cancel_payment(payment_id)
-                    LOG.info(f"Cancelled payment {payment_id} due to gateway error")
-                except Exception as cancel_err:
-                    LOG.error(f"Failed to cancel payment {payment_id}: {cancel_err}", exc_info=True)
-                raise
+            LOG.info(f"Payment created: {method} for user {tg_id}, amount {amount}, id={payment_id}")
+
+            if method in [PaymentMethod.TON, PaymentMethod.CRYPTOBOT, PaymentMethod.YOOKASSA]:
+                await self.start_polling_if_needed()
+
+            return result
+
         except Exception as e:
             LOG.error(f"Create payment error for user {tg_id}: {type(e).__name__}: {e}")
             raise
@@ -158,19 +150,17 @@ class PaymentManager:
                         for payment in cryptobot_pendings:
                             async with get_session() as check_session:
                                 check_redis = await get_redis()
-                                check_gateway = self.gateways[PaymentMethod.CRYPTOBOT].__class__(check_session, check_redis, bot=bot)
+                                check_gateway = self.gateways[PaymentMethod.CRYPTOBOT].__class__(check_session, check_redis, bot=self.bot)
                                 await check_gateway.check_payment(payment['id'])
 
                     yookassa_pendings = await temp_payment_repo.get_pending_or_recent_expired_payments(
                         PaymentMethod.YOOKASSA.value,
                         expired_hours=1
                     )
-                    if yookassa_pendings:
-                        for payment in yookassa_pendings:
-                            async with get_session() as check_session:
-                                check_redis = await get_redis()
-                                check_gateway = self.gateways[PaymentMethod.YOOKASSA].__class__(check_session, check_redis, bot=bot)
-                                await check_gateway.check_payment(payment['id'])
+
+                    for payment in yookassa_pendings:
+                        check_gateway = YooKassaGateway(session, redis_client, bot=self.bot)
+                        await check_gateway.check_payment(payment['id'])
 
                     if not ton_pendings and not cryptobot_pendings and not yookassa_pendings:
                         break

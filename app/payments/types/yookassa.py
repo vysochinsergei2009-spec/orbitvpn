@@ -12,8 +12,6 @@ from app.payments.models import PaymentResult, PaymentMethod
 from app.db.payments import PaymentRepository
 from app.settings.config import env
 
-from app.settings.factory import create_bot
-
 LOG = logging.getLogger(__name__)
 
 
@@ -69,8 +67,7 @@ class YooKassaGateway(BasePaymentGateway):
         try:
             await self._ensure_configured()
 
-            bot = create_bot()
-            bot_info = await bot.get_me()
+            bot_info = await self.bot.get_me()
             bot_username = bot_info.username
             return_url = f"https://t.me/{bot_username}"
 

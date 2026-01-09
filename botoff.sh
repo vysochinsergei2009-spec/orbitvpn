@@ -2,7 +2,7 @@
 
 
 readonly TMUX_SESSION="orbitvpn_bot"
-readonly PROJECT_DIR="/root/orbitvpn"
+readonly PROJECT_DIR="/opt/orbitvpn"
 
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'

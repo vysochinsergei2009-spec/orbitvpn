@@ -22,7 +22,6 @@ from .helpers import safe_answer_callback, get_user_balance, format_expire_date
 from app.settings.factory import create_bot
 
 router = Router()
-bot = create_bot()
 
 LOG = get_logger(__name__)
 
@@ -243,6 +242,7 @@ async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
 
 @router.pre_checkout_query()
 async def pre_checkout(pre_checkout_query: PreCheckoutQuery):
+    bot = pre_checkout_query.bot
     payload = pre_checkout_query.invoice_payload
 
     if not payload.startswith("topup_"):
