@@ -11,13 +11,14 @@ from app.keys import (
     balance_kb, payment_methods_kb, payment_amounts_kb,
     back_balance, payment_success_actions
 )
-from app.db.db import get_session
+from app.db.user import UserRepository
+from app.db.payments import PaymentRepository
 from app.payments.manager import PaymentManager
 from app.payments.models import PaymentMethod
 from app.settings.log import get_logger
 from app.db.cache import get_redis
 from app.settings.config import env
-from .helpers import safe_answer_callback, get_repositories, get_user_balance, format_expire_date
+from .helpers import safe_answer_callback, get_user_balance, format_expire_date
 from app.settings.factory import create_bot
 
 router = Router()
@@ -31,32 +32,30 @@ class PaymentState(StatesGroup):
 
 
 @router.callback_query(F.data == 'balance')
-async def balance_callback(callback: CallbackQuery, t, state: FSMContext):
+async def balance_callback(callback: CallbackQuery, t, state: FSMContext, user_repo: UserRepository):
     await safe_answer_callback(callback)
     await state.clear()
     tg_id = callback.from_user.id
 
-    async with get_session() as session:
-        user_repo, _ = await get_repositories(session)
-        balance = await get_user_balance(user_repo, tg_id)
-        has_active_sub = await user_repo.has_active_subscription(tg_id)
-        sub_end = await user_repo.get_subscription_end(tg_id)
+    balance = await get_user_balance(user_repo, tg_id)
+    has_active_sub = await user_repo.has_active_subscription(tg_id)
+    sub_end = await user_repo.get_subscription_end(tg_id)
 
-        text = t('balance_text', balance=balance)
+    text = t('balance_text', balance=balance)
 
-        show_renew_button = sub_end is not None and not has_active_sub
+    show_renew_button = sub_end is not None and not has_active_sub
 
-        if has_active_sub:
-            expire_date = format_expire_date(sub_end)
-            text += f"\n\n{t('subscription_active_until', expire_date=expire_date)}"
-        elif sub_end is not None:
-            expire_date = format_expire_date(sub_end)
-            text += f"\n\n{t('subscription_expired_on', expire_date=expire_date)}"
-        else:
-            cheapest = min(env.plans.values(), key=lambda x: x['price'])
-            text += f"\n\n{t('subscription_from', price=cheapest['price'])}"
+    if has_active_sub:
+        expire_date = format_expire_date(sub_end)
+        text += f"\n\n{t('subscription_active_until', expire_date=expire_date)}"
+    elif sub_end is not None:
+        expire_date = format_expire_date(sub_end)
+        text += f"\n\n{t('subscription_expired_on', expire_date=expire_date)}"
+    else:
+        cheapest = min(env.plans.values(), key=lambda x: x['price'])
+        text += f"\n\n{t('subscription_from', price=cheapest['price'])}"
 
-        await callback.message.edit_text(text, reply_markup=balance_kb(t, show_renew=show_renew_button))
+    await callback.message.edit_text(text, reply_markup=balance_kb(t, show_renew=show_renew_button))
 
 
 @router.callback_query(F.data == 'add_funds')
@@ -181,10 +180,11 @@ async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
             await msg_or_callback.answer(text, reply_markup=balance_kb(t))
         return
 
-    async with get_session() as session:
-        payment_id = None
-        try:
-            redis_client = await get_redis()
+    payment_id = None
+    try:
+        redis_client = await get_redis()
+        from app.db.db import get_session
+        async with get_session() as session:
             manager = PaymentManager(session, redis_client)
             chat_id = msg_or_callback.message.chat.id if is_callback else msg_or_callback.chat.id
             
@@ -200,41 +200,45 @@ async def process_payment(msg_or_callback, t, method_str: str, amount: Decimal):
             else:
                 await msg_or_callback.answer(text, reply_markup=kb, parse_mode=parse_mode)
 
-        except (ValueError, OperationalError, SQLTimeoutError) as e:
-            LOG.error(f"Payment error for user {tg_id}: {type(e).__name__}: {e}", exc_info=True)
-            
-            if payment_id:
-                try:
-                    redis_client = await get_redis()
+    except (ValueError, OperationalError, SQLTimeoutError) as e:
+        LOG.error(f"Payment error for user {tg_id}: {type(e).__name__}: {e}", exc_info=True)
+        
+        if payment_id:
+            try:
+                redis_client = await get_redis()
+                from app.db.db import get_session
+                async with get_session() as session:
                     manager = PaymentManager(session, redis_client)
                     await manager.cancel_payment(payment_id)
-                    LOG.info(f"Cancelled payment {payment_id} for user {tg_id} due to gateway error")
-                except Exception as cancel_err:
-                    LOG.error(f"Failed to cancel payment {payment_id}: {cancel_err}", exc_info=True)
-            
-            error_text = t('error_creating_payment')
-            if is_callback:
-                await msg_or_callback.message.answer(error_text, reply_markup=balance_kb(t))
-            else:
-                await msg_or_callback.answer(error_text, reply_markup=balance_kb(t))
+                LOG.info(f"Cancelled payment {payment_id} for user {tg_id} due to gateway error")
+            except Exception as cancel_err:
+                LOG.error(f"Failed to cancel payment {payment_id}: {cancel_err}", exc_info=True)
+        
+        error_text = t('error_creating_payment')
+        if is_callback:
+            await msg_or_callback.message.answer(error_text, reply_markup=balance_kb(t))
+        else:
+            await msg_or_callback.answer(error_text, reply_markup=balance_kb(t))
 
-        except Exception as e:
-            LOG.error(f"Unexpected payment error for user {tg_id}: {type(e).__name__}: {e}", exc_info=True)
-            
-            if payment_id:
-                try:
-                    redis_client = await get_redis()
+    except Exception as e:
+        LOG.error(f"Unexpected payment error for user {tg_id}: {type(e).__name__}: {e}", exc_info=True)
+        
+        if payment_id:
+            try:
+                redis_client = await get_redis()
+                from app.db.db import get_session
+                async with get_session() as session:
                     manager = PaymentManager(session, redis_client)
                     await manager.cancel_payment(payment_id)
-                    LOG.info(f"Cancelled payment {payment_id} for user {tg_id} due to unexpected error")
-                except Exception as cancel_err:
-                    LOG.error(f"Failed to cancel payment {payment_id}: {cancel_err}", exc_info=True)
-            
-            error_text = t('error_creating_payment')
-            if is_callback:
-                await msg_or_callback.message.answer(error_text, reply_markup=balance_kb(t))
-            else:
-                await msg_or_callback.answer(error_text, reply_markup=balance_kb(t))
+                LOG.info(f"Cancelled payment {payment_id} for user {tg_id} due to unexpected error")
+            except Exception as cancel_err:
+                LOG.error(f"Failed to cancel payment {payment_id}: {cancel_err}", exc_info=True)
+        
+        error_text = t('error_creating_payment')
+        if is_callback:
+            await msg_or_callback.message.answer(error_text, reply_markup=balance_kb(t))
+        else:
+            await msg_or_callback.answer(error_text, reply_markup=balance_kb(t))
 
 
 @router.pre_checkout_query()
@@ -288,7 +292,7 @@ async def pre_checkout(pre_checkout_query: PreCheckoutQuery):
 
 
 @router.message(F.content_type == ContentType.SUCCESSFUL_PAYMENT)
-async def successful_payment(message: Message, t):
+async def successful_payment(message: Message, t, user_repo: UserRepository):
     tg_id = message.from_user.id
 
     if not message.successful_payment:
@@ -305,6 +309,7 @@ async def successful_payment(message: Message, t):
 
     rub_amount = Decimal(stars_paid) * Decimal(str(env.TELEGRAM_STARS_RATE))
 
+    from app.db.db import get_session
     async with get_session() as session:
         try:
             from app.models.db import Payment as PaymentModel, User
@@ -372,7 +377,6 @@ async def successful_payment(message: Message, t):
                     f"amount={rub_amount}, balance: {old_balance} → {new_balance}")
 
             try:
-                user_repo, _ = await get_repositories(session)
                 redis = await user_repo.get_redis()
                 await redis.delete(f"user:{tg_id}:balance")
             except Exception as redis_err:
@@ -394,18 +398,23 @@ async def successful_payment(message: Message, t):
 
 
 @router.callback_query(F.data.startswith('payment_sent_'))
-async def payment_sent_callback(callback: CallbackQuery, t):
+async def payment_sent_callback(
+    callback: CallbackQuery, 
+    t,
+    user_repo: UserRepository,
+    payment_repo: PaymentRepository
+):
     await safe_answer_callback(callback, t('payment_checking'), show_alert=True)
 
     tg_id = callback.from_user.id
     payment_id = int(callback.data.replace('payment_sent_', ''))
 
+    from app.db.db import get_session
     async with get_session() as session:
         try:
             redis_client = await get_redis()
             manager = PaymentManager(session, redis_client)
 
-            _, payment_repo = await get_repositories(session)
             payment = await payment_repo.get_payment(payment_id)
 
             if not payment:
@@ -413,7 +422,6 @@ async def payment_sent_callback(callback: CallbackQuery, t):
 
             confirmed = await manager.check_payment(payment_id)
 
-            user_repo, _ = await get_repositories(session)
             balance = await get_user_balance(user_repo, tg_id)
             has_active_sub = await user_repo.has_active_subscription(tg_id)
 
@@ -434,7 +442,6 @@ async def payment_sent_callback(callback: CallbackQuery, t):
 
         except Exception as e:
             LOG.error(f"Error checking payment {payment_id}: {e}")
-            user_repo, _ = await get_repositories(session)
             balance = await get_user_balance(user_repo, tg_id)
             text = t('balance_text', balance=balance)
             await callback.message.edit_text(text, reply_markup=balance_kb(t))

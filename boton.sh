@@ -1,6 +1,4 @@
 #!/bin/bash
-
-
 readonly PROJECT_DIR="/root/orbitvpn"
 readonly VENV_PATH="${PROJECT_DIR}/venv"
 readonly PYTHON_SCRIPT="${PROJECT_DIR}/run.py"
