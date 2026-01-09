@@ -8,7 +8,7 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from app.db.db import get_session
 from app.models.db import User
 from app.db.user import UserRepository
-from app.db.cache import get_redis
+from app.db.cache import get_redis, set_cache
 from app.settings.locales import get_translator
 from app.settings.config import env
 
@@ -48,7 +48,7 @@ async def check_auto_renewals(bot: Bot):
                 success = await _attempt_auto_renewal(user, redis, bot)
                 if success:
                     renewal_count += 1
-                    await redis.setex(redis_key, 86400, "1")
+                    await set_cache(redis_key, "1", 86400)
 
             LOG.info(f"Auto-renewal check completed: {renewal_count} subscriptions renewed")
 

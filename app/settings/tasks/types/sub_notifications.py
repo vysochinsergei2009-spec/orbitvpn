@@ -9,8 +9,10 @@ from app.db.db import get_session
 from app.models.db import User
 from app.db.cache import get_redis
 from app.settings.locales import get_translator
-from app.settings.config import env
 from app.keys import renewal_notification_kb
+from app.db.cache import set_cache
+
+from app.settings.config import env
 
 LOG = logging.getLogger(__name__)
 
@@ -80,10 +82,7 @@ async def _check_and_notify_user(user: User, redis, bot: Bot):
     success = await _send_notification(user.tg_id, user.lang, days, float(user.balance), bot)
 
     if success:
-        try:
-            await redis.setex(redis_key, ttl, "1")
-        except Exception as e:
-            LOG.warning(f"Redis error marking notification sent for {user.tg_id}: {e}")
+        await set_cache(redis_key, "1", ttl)
 
 
 async def _send_notification(tg_id: int, lang: str, days: int | str, user_balance: float, bot: Bot) -> bool:

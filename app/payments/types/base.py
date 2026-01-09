@@ -3,6 +3,8 @@ from decimal import Decimal
 from typing import Optional
 from datetime import datetime
 from app.payments.models import PaymentResult
+
+from app.db.cache import invalidate_user_cache
 from app.settings.log import get_logger
 
 LOG = get_logger(__name__)
@@ -90,12 +92,7 @@ class BasePaymentGateway(ABC):
             LOG.info(f"Payment confirmed: id={payment_id}, user={user.tg_id}, "
                     f"amount={amount}, balance: {old_balance} → {user.balance}, tx_hash={tx_hash}")
 
-            try:
-                redis = await self.get_redis()
-                await redis.delete(f"user:{user.tg_id}:balance")
-            except Exception as e:
-                LOG.warning(f"Redis error invalidating cache for user {user.tg_id}: {e}")
-
+            await invalidate_user_cache(user.tg_id, 'balance')
             return True
 
         except Exception as e:

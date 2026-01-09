@@ -3,10 +3,12 @@ from decimal import Decimal
 from typing import Optional
 from aiogram import Bot
 from aiocryptopay import AioCryptoPay, Networks
+
 from .base import BasePaymentGateway
 from app.payments.models import PaymentResult, PaymentMethod
 from app.db.payments import PaymentRepository
 from app.settings.utils.rates import get_usdt_rub_rate
+from app.db.cache import invalidate_user_cache
 from app.settings.config import env
 
 LOG = logging.getLogger(__name__)
@@ -182,11 +184,7 @@ class CryptoBotGateway(BasePaymentGateway):
                 from datetime import datetime
                 has_active_sub = user.subscription_end and user.subscription_end > datetime.utcnow()
 
-                try:
-                    redis = await self.payment_repo.get_redis()
-                    await redis.delete(f"user:{user.tg_id}:balance")
-                except Exception as e:
-                    LOG.warning(f"Redis error invalidating cache for user {user.tg_id}: {e}")
+                await invalidate_user_cache(user.tg_id, 'balance')
 
                 await self.on_payment_confirmed(
                     payment_id=payment_id,
