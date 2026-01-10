@@ -19,14 +19,15 @@ class PaymentManager:
         self.redis_client = redis_client
         self.bot = bot
         self.payment_repo = PaymentRepository(session, redis_client)
-        self.gateways: dict[PaymentMethod, BasePaymentGateway] = {
-            PaymentMethod.TON: TonGateway(session, redis_client, bot=self.bot),
-            PaymentMethod.STARS: TelegramStarsGateway(self.bot, session, redis_client),
-            PaymentMethod.CRYPTOBOT: CryptoBotGateway(session, redis_client, bot=self.bot),
-            PaymentMethod.YOOKASSA: YooKassaGateway(session, redis_client, bot=self.bot),
-        }
         self.user_repo = UserRepository(session, redis_client)
         self.polling_task: Optional[asyncio.Task] = None
+        
+        self.gateways: dict[PaymentMethod, BasePaymentGateway] = {
+            PaymentMethod.TON: TonGateway(session, redis_client, bot=bot),
+            PaymentMethod.STARS: TelegramStarsGateway(bot, session, redis_client),
+            PaymentMethod.CRYPTOBOT: CryptoBotGateway(session, redis_client, bot=bot),
+            PaymentMethod.YOOKASSA: YooKassaGateway(session, redis_client, bot=bot),
+        }
 
 
     async def create_payment(
@@ -150,7 +151,7 @@ class PaymentManager:
                         for payment in cryptobot_pendings:
                             async with get_session() as check_session:
                                 check_redis = await get_redis()
-                                check_gateway = self.gateways[PaymentMethod.CRYPTOBOT].__class__(check_session, check_redis, bot=self.bot)
+                                check_gateway = CryptoBotGateway(check_session, check_redis, bot=self.bot)
                                 await check_gateway.check_payment(payment['id'])
 
                     yookassa_pendings = await temp_payment_repo.get_pending_or_recent_expired_payments(
