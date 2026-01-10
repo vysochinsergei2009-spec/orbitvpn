@@ -71,6 +71,10 @@ LOCALES = {
         'config': 'Конфигурация',
         'payment_success': '✓ Баланс пополнен на {amount:.2f} RUB\n\nТеперь вы можете:',
         'extend': 'Продлить',
+        'extend_by_1m': '+ 1 мес {price} RUB',
+        'extend_by_3m': '+ 3 мес {price} RUB',
+        'extend_by_6m': '+ 6 мес {price} RUB',
+        'extend_by_12m': '+ 12 мес {price} RUB',
         'ton_payment_instruction': (
                 "Оплата через TON\n\n"
                 "Отправьте {ton_amount} на кошелек:\n"
@@ -186,6 +190,10 @@ LOCALES = {
         'config': 'Config',
         'payment_success': '✓ Balance topped up by {amount:.2f} RUB\n\nYou can now:',
         'extend': 'Extend',
+        'extend_by_1m': '+ 1 mo {price} RUB',
+        'extend_by_3m': '+ 3 mo {price} RUB',
+        'extend_by_6m': '+ 6 mo {price} RUB',
+        'extend_by_12m': '+ 12 mo {price} RUB',
         'ton_payment_instruction': (
                 "Payment via TON\n\n"
                 "Send {ton_amount} to the wallet:\n"
